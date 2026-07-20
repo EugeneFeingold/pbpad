@@ -1,0 +1,14 @@
+# pbpad WiFi credentials — EXAMPLE / TEMPLATE
+#
+# Copy this to the Pi (NOT into the repo) and fill in real values:
+#     scp pbpad-wifi.conf.example pi@<host>:~/.pbpad-wifi.conf
+#     ssh pi@<host> "chmod 600 ~/.pbpad-wifi.conf"
+# then edit ~/.pbpad-wifi.conf. setup.sh reads it and preloads the networks
+# into NetworkManager. The real file is git-ignored and never committed.
+#
+# Format: one network per line, pipe-separated —  SSID|password|priority
+#   - priority is optional (default 10); higher priority wins when both are in range
+#   - blank lines and lines starting with # are ignored
+
+My Home Network|your-wifi-password|10
+My Home Network 5GHz|your-wifi-password|10

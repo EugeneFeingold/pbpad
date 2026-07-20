@@ -1,0 +1,34 @@
+# --- secrets: never commit real WiFi credentials -----------------------------
+# The live file lives at ~/.pbpad-wifi.conf on the Pi. These patterns also stop
+# a copy accidentally placed in the repo from being committed.
+.pbpad-wifi.conf
+pbpad-wifi.conf
+*.secret
+
+# --- runtime / device state ---------------------------------------------------
+logs/
+*.log
+.pbpad.json          # persisted settings (backlight, timeouts, preferred PBs)
+
+# --- python -------------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+
+# --- build / deploy scratch ---------------------------------------------------
+dist/
+build/
+pbpad.tar
+
+# --- editor / OS / tooling ----------------------------------------------------
+.claude/
+.tmp.driveupload/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

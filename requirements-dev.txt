@@ -1,0 +1,5 @@
+# Dev/test dependencies (NOT installed on the Pi, NOT deployed).
+# Install on a dev machine with:  pip install -r requirements-dev.txt
+pytest
+pytest-asyncio
+pillow          # real PIL — LCD rendering tests assert on actual pixels

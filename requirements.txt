@@ -1,0 +1,14 @@
+# Install via setup.sh, not pip install -r requirements.txt directly.
+# pixelblaze-client must be installed --no-deps (py_mini_racer fails on ARM).
+
+# apt
+# python3-rpi.gpio
+# python3-gpiozero
+# python3-spidev
+# pigpio
+# python3-pigpio
+
+# pip
+lzstring
+smbus2
+# pixelblaze-client  (see setup.sh)

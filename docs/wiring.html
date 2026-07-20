@@ -1,0 +1,239 @@
+<title>pbpad — Wiring Diagram</title>
+<style>
+  *, *::before, *::after { box-sizing:border-box; }
+  :root {
+    --ground:#0d1014; --panel:#141a21; --panel-2:#1b232c;
+    --line:#29323d; --rail:#3a4653;
+    --ink:#e9eef4; --ink-dim:#8a96a4; --accent:#5ac8b6;
+    --v33:#f0b429; --v5:#ff5f56; --gnd:#7f8b99;
+    --oled:#5aa9ff; --enc:#46c86a; --led:#b388ff; --gauge:#39d6c0; --pwr:#ff7ab6;
+    --mono: ui-monospace,"SF Mono","Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --shadow: 0 1px 0 rgba(255,255,255,.02), 0 8px 30px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: light){ :root{
+    --ground:#eaeef2; --panel:#f5f8fa; --panel-2:#ffffff; --line:#d5dce3; --rail:#aeb9c4;
+    --ink:#18202a; --ink-dim:#586675; --accent:#12897a;
+    --v33:#a86e08; --v5:#d23b32; --gnd:#5f6b78;
+    --oled:#2f6fd0; --enc:#1d9a4b; --led:#7444cf; --gauge:#0d9488; --pwr:#c8477e;
+    --shadow:0 1px 2px rgba(20,30,40,.06),0 10px 30px rgba(20,30,40,.08);
+  }}
+  :root[data-theme="dark"]{
+    --ground:#0d1014; --panel:#141a21; --panel-2:#1b232c; --line:#29323d; --rail:#3a4653;
+    --ink:#e9eef4; --ink-dim:#8a96a4; --accent:#5ac8b6;
+    --v33:#f0b429; --v5:#ff5f56; --gnd:#7f8b99;
+    --oled:#5aa9ff; --enc:#46c86a; --led:#b388ff; --gauge:#39d6c0; --pwr:#ff7ab6;
+    --shadow:0 1px 0 rgba(255,255,255,.02),0 8px 30px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"]{
+    --ground:#eaeef2; --panel:#f5f8fa; --panel-2:#ffffff; --line:#d5dce3; --rail:#aeb9c4;
+    --ink:#18202a; --ink-dim:#586675; --accent:#12897a;
+    --v33:#a86e08; --v5:#d23b32; --gnd:#5f6b78;
+    --oled:#2f6fd0; --enc:#1d9a4b; --led:#7444cf; --gauge:#0d9488; --pwr:#c8477e;
+    --shadow:0 1px 2px rgba(20,30,40,.06),0 10px 30px rgba(20,30,40,.08);
+  }
+
+  body{ margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+        line-height:1.5; -webkit-font-smoothing:antialiased;
+        background-image:radial-gradient(1200px 500px at 12% -10%,
+          color-mix(in srgb,var(--accent) 7%,transparent),transparent 60%); }
+  .wrap{ max-width:1080px; margin:0 auto; padding:40px 24px 64px; }
+
+  header{ padding-bottom:22px; border-bottom:1px solid var(--line); }
+  .eyebrow{ font-family:var(--mono); font-size:12px; letter-spacing:.22em;
+            text-transform:uppercase; color:var(--accent); margin:0 0 10px; }
+  h1{ font-size:clamp(28px,4.5vw,44px); margin:0; font-weight:700; letter-spacing:-.02em; }
+  h1 .dim{ color:var(--ink-dim); font-weight:500; }
+  .lede{ margin:12px 0 0; max-width:60ch; color:var(--ink-dim); font-size:15px; }
+
+  .sec{ font-family:var(--mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+        color:var(--ink-dim); margin:34px 2px 14px; display:flex; align-items:center; gap:12px; }
+  .sec::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  /* ---- components (bill of materials) ---- */
+  .bom{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 22px; }
+  @media (max-width:720px){ .bom{ grid-template-columns:1fr; } }
+  .item{ display:flex; gap:11px; align-items:baseline; padding:9px 12px; background:var(--panel);
+         border:1px solid var(--line); border-radius:8px; }
+  .item .dot{ width:9px; height:9px; border-radius:2px; flex:0 0 auto;
+              background:var(--c,var(--rail)); position:relative; top:2px; }
+  .item .nm{ font-family:var(--mono); font-size:13px; color:var(--ink); }
+  .item .ds{ font-size:12px; color:var(--ink-dim); margin-left:auto; text-align:right; }
+  .item.host{ --c:var(--accent);} .item.oled{ --c:var(--oled);} .item.enc{ --c:var(--enc);}
+  .item.led{ --c:var(--led);} .item.gauge{ --c:var(--gauge);} .item.pwr{ --c:var(--pwr);}
+  .item.pow{ --c:var(--v5);}
+
+  /* ---- 40-pin header ---- */
+  .header40{ max-width:640px; margin:0 auto; background:var(--panel); border:1px solid var(--line);
+             border-radius:12px; padding:14px; box-shadow:var(--shadow); }
+  .connlabel{ text-align:center; font-family:var(--mono); font-size:11px; color:var(--ink-dim);
+              letter-spacing:.1em; padding:2px 0 10px; }
+  .prow{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:6px; }
+  .pin{ position:relative; display:flex; flex-direction:column; gap:1px; min-height:36px;
+        padding:5px 8px 5px 24px; border:1px solid var(--line); border-radius:5px;
+        background:var(--panel-2); }
+  .prow .pin:first-child{ padding:5px 24px 5px 8px; align-items:flex-end; text-align:right; }
+  .pin .pn{ position:absolute; top:50%; transform:translateY(-50%); width:17px; height:17px;
+            border-radius:50%; background:var(--rail); color:var(--ground);
+            font-family:var(--mono); font-size:10px; font-weight:700;
+            display:flex; align-items:center; justify-content:center; left:5px; }
+  .prow .pin:first-child .pn{ left:auto; right:5px; }
+  .pin .fn{ font-family:var(--mono); font-size:11px; color:var(--ink); line-height:1.15; }
+  .pin .use{ font-size:10.5px; color:var(--ink-dim); line-height:1.15; }
+  .pin.free{ opacity:.4; }
+  .pin.free .fn{ color:var(--ink-dim); }
+  .pin.v33{ --c:var(--v33);} .pin.v5{ --c:var(--v5);} .pin.gnd{ --c:var(--gnd);}
+  .pin.oled{ --c:var(--oled);} .pin.enc{ --c:var(--enc);} .pin.led{ --c:var(--led);}
+  .pin.gauge{ --c:var(--gauge);} .pin.pwr{ --c:var(--pwr);}
+  .pin:not(.free){ border-left:3px solid var(--c); }
+  .prow .pin:first-child:not(.free){ border-left:1px solid var(--line); border-right:3px solid var(--c); }
+  .pin:not(.free) .pn{ background:var(--c); }
+
+  .legend{ display:flex; flex-wrap:wrap; gap:8px 16px; padding:12px 14px; background:var(--panel);
+           border:1px solid var(--line); border-radius:8px; margin:14px auto 0; max-width:640px; }
+  .legend .lg-title{ font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+                     text-transform:uppercase; color:var(--ink-dim); }
+  .legend span.k{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; }
+  .swatch{ width:11px; height:11px; border-radius:3px; }
+
+  /* ---- power section ---- */
+  .grid2{ display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); gap:22px; align-items:start; }
+  @media (max-width:880px){ .grid2{ grid-template-columns:1fr; } }
+  .board{ background:var(--panel); border:1px solid var(--line); border-radius:12px;
+          padding:18px 18px 20px; box-shadow:var(--shadow); }
+  .board.pwr{ border-top:2px solid var(--pwr); }
+  .board h2{ margin:0 0 6px; font-size:15px; font-family:var(--sans); font-weight:700; letter-spacing:-.01em; }
+  .board .sub{ margin:0 0 12px; font-size:12.5px; color:var(--ink-dim); }
+  .part{ font-family:var(--mono); font-size:12px; color:var(--ink-dim); font-weight:400; }
+  pre.art{ margin:0; padding:14px 16px; background:var(--panel-2); border:1px solid var(--line);
+           border-radius:8px; font-family:var(--mono); font-size:12px; line-height:1.5;
+           color:var(--ink); overflow-x:auto; }
+  pre.art b{ color:var(--pwr); font-weight:600; }
+  pre.art .g{ color:var(--gnd); }
+
+  .subs{ display:flex; flex-direction:column; gap:14px; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px;
+         border-top:2px solid var(--c,var(--rail)); padding:13px 15px; box-shadow:var(--shadow); }
+  .card.pow{ --c:var(--v5); }
+  .card h3{ margin:0 0 2px; font-size:13.5px; font-family:var(--mono); }
+  table{ width:100%; border-collapse:collapse; margin-top:9px; font-size:12.5px; }
+  td{ padding:4px 0; border-top:1px solid var(--line); vertical-align:top; }
+  tr:first-child td{ border-top:0; }
+  td.from{ font-family:var(--mono); color:var(--ink); white-space:nowrap; }
+  td.arrow{ color:var(--accent); font-family:var(--mono); width:22px; text-align:center; }
+  td.to{ font-family:var(--mono); color:var(--ink); white-space:nowrap; }
+  td.note{ color:var(--ink-dim); font-size:11.5px; padding-left:10px; }
+
+  .flag{ padding:11px 14px; border:1px solid var(--line); border-left:3px solid var(--v33);
+         border-radius:8px; background:var(--panel); font-size:12.5px; color:var(--ink-dim); }
+  .flag b{ color:var(--ink); font-family:var(--mono); font-size:12px; }
+  .footnote{ margin-top:26px; font-family:var(--mono); font-size:11.5px; color:var(--ink-dim); letter-spacing:.02em; }
+  a:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">pbpad &middot; raspberry pi zero w build</p>
+    <h1>Wiring <span class="dim">diagram</span></h1>
+    <p class="lede">The hardware in this build, every pin on the Pi's 40-pin header, and the
+      power path. GPIO functions are taken from <span style="font-family:var(--mono)">config.py</span>;
+      the power subsystem from the build notes.</p>
+  </header>
+
+  <!-- ============ COMPONENTS ============ -->
+  <p class="sec">Hardware components</p>
+  <div class="bom">
+    <div class="item host"><span class="dot"></span><span class="nm">Raspberry Pi Zero W</span><span class="ds">host · WiFi</span></div>
+    <div class="item oled"><span class="dot"></span><span class="nm">SH1106 OLED</span><span class="ds">1.3″ 128×64 · I²C</span></div>
+    <div class="item enc"><span class="dot"></span><span class="nm">Rotary encoder ×2</span><span class="ds">push-rotary (EC11)</span></div>
+    <div class="item led"><span class="dot"></span><span class="nm">WS2812 LED strip</span><span class="ds">8 pixels · data direct from GPIO10</span></div>
+    <div class="item gauge"><span class="dot"></span><span class="nm">LC709203F</span><span class="ds">LiPo fuel gauge (Adafruit 4712)</span></div>
+    <div class="item pow"><span class="dot"></span><span class="nm">LiPo cell</span><span class="ds">3.7 V · 5000 mAh</span></div>
+    <div class="item pow"><span class="dot"></span><span class="nm">HW-775 board</span><span class="ds">IP5306 charger + 5V boost</span></div>
+    <div class="item pwr"><span class="dot"></span><span class="nm">Push button</span><span class="ds">momentary · power</span></div>
+    <div class="item pwr"><span class="dot"></span><span class="nm">AO3407</span><span class="ds">P-channel MOSFET</span></div>
+    <div class="item pwr"><span class="dot"></span><span class="nm">Schottky diode</span><span class="ds">BAT85 / 1N5817</span></div>
+    <div class="item pwr"><span class="dot"></span><span class="nm">100 kΩ resistor</span><span class="ds">MOSFET gate pull-down</span></div>
+  </div>
+
+  <!-- ============ PIN FUNCTIONS ============ -->
+  <p class="sec">GPIO header — pin functions</p>
+  <div class="header40">
+    <div class="connlabel">physical pin numbers · pin 1 at the board corner</div>
+<div class="prow"><div class="pin v33"><span class="pn">01</span><span class="fn">3V3</span><span class="use">OLED VCC (3.3V)</span></div><div class="pin v5"><span class="pn">02</span><span class="fn">5V</span><span class="use">IP5306 5V in</span></div></div>
+    <div class="prow"><div class="pin oled"><span class="pn">03</span><span class="fn">GPIO2 SDA1</span><span class="use">OLED SDA</span></div><div class="pin v5"><span class="pn">04</span><span class="fn">5V</span><span class="use">WS2812 5V</span></div></div>
+    <div class="prow"><div class="pin oled"><span class="pn">05</span><span class="fn">GPIO3 SCL1</span><span class="use">OLED SCL + WAKE</span></div><div class="pin gnd"><span class="pn">06</span><span class="fn">GND</span><span class="use">GND rail</span></div></div>
+    <div class="prow"><div class="pin free free"><span class="pn">07</span><span class="fn">GPIO4</span></div><div class="pin free free"><span class="pn">08</span><span class="fn">GPIO14 TXD</span></div></div>
+    <div class="prow"><div class="pin gnd"><span class="pn">09</span><span class="fn">GND</span><span class="use">OLED + button GND</span></div><div class="pin free free"><span class="pn">10</span><span class="fn">GPIO15 RXD</span></div></div>
+    <div class="prow"><div class="pin pwr"><span class="pn">11</span><span class="fn">GPIO17</span><span class="use">button &mdash; shutdown</span></div><div class="pin free free"><span class="pn">12</span><span class="fn">GPIO18</span></div></div>
+    <div class="prow"><div class="pin pwr"><span class="pn">13</span><span class="fn">GPIO27</span><span class="use">MOSFET gate</span></div><div class="pin gnd"><span class="pn">14</span><span class="fn">GND</span><span class="use">gauge GND</span></div></div>
+    <div class="prow"><div class="pin free free"><span class="pn">15</span><span class="fn">GPIO22</span></div><div class="pin gauge"><span class="pn">16</span><span class="fn">GPIO23</span><span class="use">gauge SDA (sw i2c)</span></div></div>
+    <div class="prow"><div class="pin v33"><span class="pn">17</span><span class="fn">3V3</span><span class="use">gauge VCC</span></div><div class="pin gauge"><span class="pn">18</span><span class="fn">GPIO24</span><span class="use">gauge SCL (sw i2c)</span></div></div>
+    <div class="prow"><div class="pin led"><span class="pn">19</span><span class="fn">GPIO10 MOSI</span><span class="use">WS2812 data</span></div><div class="pin gnd"><span class="pn">20</span><span class="fn">GND</span><span class="use">WS2812 GND</span></div></div>
+    <div class="prow"><div class="pin free free"><span class="pn">21</span><span class="fn">GPIO9 MISO</span></div><div class="pin free free"><span class="pn">22</span><span class="fn">GPIO25</span></div></div>
+    <div class="prow"><div class="pin free free"><span class="pn">23</span><span class="fn">GPIO11 SCLK</span></div><div class="pin free free"><span class="pn">24</span><span class="fn">GPIO8 CE0</span></div></div>
+    <div class="prow"><div class="pin gnd"><span class="pn">25</span><span class="fn">GND</span><span class="use">GND rail</span></div><div class="pin free free"><span class="pn">26</span><span class="fn">GPIO7 CE1</span></div></div>
+    <div class="prow"><div class="pin free free"><span class="pn">27</span><span class="fn">GPIO0 ID_SD</span><span class="use">reserved</span></div><div class="pin free free"><span class="pn">28</span><span class="fn">GPIO1 ID_SC</span><span class="use">reserved</span></div></div>
+    <div class="prow"><div class="pin free free"><span class="pn">29</span><span class="fn">GPIO5</span></div><div class="pin gnd"><span class="pn">30</span><span class="fn">GND</span><span class="use">GND rail</span></div></div>
+    <div class="prow"><div class="pin free free"><span class="pn">31</span><span class="fn">GPIO6</span></div><div class="pin free free"><span class="pn">32</span><span class="fn">GPIO12</span></div></div>
+    <div class="prow"><div class="pin enc"><span class="pn">33</span><span class="fn">GPIO13</span><span class="use">Enc 2 &middot; B</span></div><div class="pin gnd"><span class="pn">34</span><span class="fn">GND</span><span class="use">Enc 1 GND</span></div></div>
+    <div class="prow"><div class="pin enc"><span class="pn">35</span><span class="fn">GPIO19</span><span class="use">Enc 2 &middot; A</span></div><div class="pin enc"><span class="pn">36</span><span class="fn">GPIO16</span><span class="use">Enc 1 &middot; SW</span></div></div>
+    <div class="prow"><div class="pin enc"><span class="pn">37</span><span class="fn">GPIO26</span><span class="use">Enc 2 &middot; SW</span></div><div class="pin enc"><span class="pn">38</span><span class="fn">GPIO20</span><span class="use">Enc 1 &middot; A</span></div></div>
+    <div class="prow"><div class="pin gnd"><span class="pn">39</span><span class="fn">GND</span><span class="use">Enc 2 GND</span></div><div class="pin enc"><span class="pn">40</span><span class="fn">GPIO21</span><span class="use">Enc 1 &middot; B</span></div></div>
+  </div>
+  <div class="legend">
+    <span class="lg-title">Subsystem</span>
+    <span class="k"><span class="swatch" style="background:var(--v33)"></span>3.3&nbsp;V</span>
+    <span class="k"><span class="swatch" style="background:var(--v5)"></span>5&nbsp;V</span>
+    <span class="k"><span class="swatch" style="background:var(--gnd)"></span>GND</span>
+    <span class="k"><span class="swatch" style="background:var(--oled)"></span>OLED</span>
+    <span class="k"><span class="swatch" style="background:var(--enc)"></span>Encoders</span>
+    <span class="k"><span class="swatch" style="background:var(--led)"></span>LEDs</span>
+    <span class="k"><span class="swatch" style="background:var(--gauge)"></span>Fuel gauge</span>
+    <span class="k"><span class="swatch" style="background:var(--pwr)"></span>Power button</span>
+  </div>
+
+  <!-- ============ POWER ============ -->
+  <p class="sec">Power</p>
+  <div class="grid2">
+    <div class="board pwr">
+      <h2>Power button <span class="part">One button · four jobs</span></h2>
+      <p class="sub">Press wakes / turns on; a 5-second hold triggers a clean shutdown. A P-MOSFET
+        (gated by GPIO27) isolates the wake tap from the OLED's SCL line while running.</p>
+      <pre class="art">   button ──── <span class="g">GND</span> (pin 9)
+      │
+      ├──── GPIO17 (pin 11)         shutdown detect
+      │
+      ├──── IP5306 <b>KEY</b>            toggles boost (full off/on)
+      │
+      └─[Schottky]─ D ─[<b>AO3407</b>]─ S ── GPIO3 (pin 5)   wake
+                            G
+                            ├─ 100 kΩ ─ <span class="g">GND</span>       default: MOSFET ON
+                            └─ GPIO27 (pin 13)   pbpad drives HIGH → OFF</pre>
+      <p class="sub" style="margin:14px 0 0">
+        <b>How it behaves.</b> Halted: GPIO27 floats, the pull-down holds the gate low, the MOSFET
+        conducts, and a press pulls GPIO3 low to wake. Running: pbpad drives GPIO27 high, the MOSFET
+        opens, and the button only reaches GPIO17 — so a shutdown-hold no longer disturbs the I²C SCL.
+      </p>
+    </div>
+
+    <div class="subs">
+      <div class="card pow">
+        <h3>Power path <span class="part">HW-775 · IP5306</span></h3>
+        <table>
+          <tr><td class="from">USB-C 5V</td><td class="arrow">→</td><td class="to">IP5306 IN</td><td class="note">charge input</td></tr>
+          <tr><td class="from">LiPo 3.7V</td><td class="arrow">⇄</td><td class="to">IP5306 BAT</td><td class="note">5000 mAh cell</td></tr>
+          <tr><td class="from">IP5306 OUT</td><td class="arrow">→</td><td class="to">5V · pin 2</td><td class="note">boost — powers Pi via header</td></tr>
+          <tr><td class="from">IP5306 GND</td><td class="arrow">→</td><td class="to">GND</td><td class="note">common ground</td></tr>
+          <tr><td class="from">IP5306 KEY</td><td class="arrow">⇄</td><td class="to">power button</td><td class="note">idle-shutoff after Pi halts</td></tr>
+        </table>
+      </div>
+      <div class="flag">
+        <b>Verify before soldering.</b> The IP5306 <b>KEY</b> terminal varies by HW-775 clone —
+        confirm with a meter.
+      </div>
+    </div>
+  </div>
+
+  <p class="footnote">GPIO functions generated from config.py · power subsystem from build notes · Pi powered through the 5V header pins, not microUSB</p>
+</div>
