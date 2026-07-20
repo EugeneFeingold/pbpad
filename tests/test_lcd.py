@@ -429,3 +429,29 @@ def test_long_footer_captions_do_not_collide(lcd):
                        enter_label="[An Absurdly Long Caption]",
                        back_label="[Back]")
     assert lcd._device.last_image is not None
+
+
+def test_message_body_does_not_accumulate_across_renders(lcd, monkeypatch):
+    """Re-rendering with the same line1 but a new line2 must show ONLY the new
+    body — not stack it under the previous one.
+
+    Regression: render_message did `lines = wrap(line1); lines += wrap(line2)`,
+    and wrap() returns a MEMOISED list, so `+=` grew line1's cache by line2 on
+    every call. A spinner (same line1, changing line2) then stacked every past
+    frame's body — the doubled "Please wait…" and a prior network name bleeding
+    onto the next "Joining WiFi" screen.
+    """
+    drawn = []
+    orig = lcd._draw_text
+
+    def rec(draw, text, *a, **k):
+        drawn.append(text)
+        return orig(draw, text, *a, **k)
+
+    monkeypatch.setattr(lcd, "_draw_text", rec)
+    lcd.render_message("Joining WiFi", "Network A")
+    drawn.clear()
+    lcd.render_message("Joining WiFi", "Network B")   # same line1, new line2
+    assert "Network A" not in drawn                    # no stale body line
+    assert drawn.count("Joining WiFi") == 1            # line1 drawn once, not stacked
+    assert "Network B" in drawn

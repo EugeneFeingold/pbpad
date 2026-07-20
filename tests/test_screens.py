@@ -407,3 +407,27 @@ def test_info_rows_reflect_stats():
     labels = [(r.label, r.value) for r in info.rows()]
     assert ("Voltage", "3.8V") in labels
     assert ("Uptime", "2m") in labels
+
+
+# --- WifiScanScreen: checkmark marks the CONNECTED network, not secured ------
+def test_wifi_scan_marks_current_network():
+    from ui.screens import WifiScanScreen
+    nets = [SimpleNamespace(ssid="Home", secured=True),
+            SimpleNamespace(ssid="Cafe", secured=False)]
+    s = WifiScanScreen(nets, on_select=lambda n: None, current_ssid="Cafe")
+    rows = {r.label: r for r in s.rows()}
+    assert rows["Cafe"].mark is True       # the one we're connected to
+    assert rows["Home"].mark is False
+    # The old secured "*" indicator is gone — no stray value on either row.
+    assert rows["Home"].value == ""
+    assert rows["Cafe"].value == ""
+
+
+def test_wifi_scan_select_routes_to_join():
+    from ui.screens import WifiScanScreen
+    picked = []
+    net = SimpleNamespace(ssid="Home", secured=True)
+    s = WifiScanScreen([net], on_select=lambda n: picked.append(n))
+    row = next(r for r in s.rows() if r.label == "Home")
+    assert row.on_open() == "wifi_join"    # app decides on password, not the screen
+    assert picked == [net]

@@ -11,7 +11,7 @@ import log
 import store
 from wifi import scanner as wifi_scanner
 from wifi import manager as wifi_manager
-from ui.screens import WifiScanScreen, SettingsScreen, ReconnectScreen
+from ui.screens import WifiScanScreen, PasswordEntryScreen, SettingsScreen, ReconnectScreen
 
 
 class FlowsMixin:
@@ -41,50 +41,102 @@ class FlowsMixin:
         self._wake_manager()
 
     async def _wifi_scan_flow(self):
-        """Background WiFi scan/connect flow (runs off the input loop)."""
-        log.log(log.CHANGE, "WiFi scan started")
-        networks = await self._run_with_spinner("Scanning WiFi", "Please wait...", wifi_scanner.scan())
-        log.log(log.CHANGE, f"WiFi scan found {len(networks)} network(s)")
-        known = await wifi_manager.known_ssids()
-
-        # Auto-connect if a known network is in range
-        for net in networks:
-            if net.ssid in known:
-                log.log(log.CHANGE, f"auto-connecting to {net.ssid}")
-                ok = await self._run_with_spinner("Connecting to", net.ssid, wifi_manager.connect(net.ssid))
-                if ok:
-                    log.log(log.CHANGE, f"WiFi auto-connected to {net.ssid}")
-                    await asyncio.sleep(1)
-                    self._in_menu = False
-                    self._wake_manager()  # let the manager discover + connect
-                    return
-
-        log.log(log.CHANGE, "no known networks found, showing scan results")
-        self._screen = WifiScanScreen(networks, on_select=self._on_network_select)
-        self._screen.render(self._lcd)
+        """Scan for networks and show the picker. Deliberately does NOT
+        auto-connect: NetworkManager already auto-associates to known networks
+        on its own, and having pbpad also connect to the strongest known network
+        on every scan made the device bounce between networks the user never
+        picked. Scanning is now purely "show me what's around so I can choose."
+        """
+        # One scan at a time. A second trigger (Rescan double-fire, or entering
+        # the menu while a scan is mid-flight) would spawn a second flow whose
+        # spinner races this one's — two "Please wait…" frames alternating on
+        # screen. Ignore overlapping triggers.
+        if self._wifi_scanning:
+            return
+        self._wifi_scanning = True
+        try:
+            log.log(log.CHANGE, "WiFi scan started")
+            networks = await self._run_with_spinner("Scanning WiFi", "Please wait...", wifi_scanner.scan())
+            log.log(log.CHANGE, f"WiFi scan found {len(networks)} network(s)")
+            self._ssid = await wifi_manager.current_ssid() or self._ssid
+            self._screen = WifiScanScreen(networks, on_select=self._on_network_select,
+                                          current_ssid=self._ssid)
+            self._screen.render(self._lcd)
+        finally:
+            self._wifi_scanning = False
 
     def _on_network_select(self, network):
         self._selected_network = network
 
-    def _on_password_submit(self, password: str):
-        asyncio.ensure_future(self._do_connect(password))
+    async def _wifi_join(self, network, password=None):
+        """Join `network`. If it's already known (a stored NM profile) or open,
+        connect with the stored/absent credentials and no prompt; ask for a
+        password only when we have none, or when a stored/typed one is rejected."""
+        if network is None:
+            return
+        ssid = network.ssid
 
-    async def _do_connect(self, password: str):
-        ok = await self._run_with_spinner(
-            "Connecting to", self._selected_network.ssid,
-            wifi_manager.connect(self._selected_network.ssid, password)
-        )
-        if ok:
-            log.log(log.CHANGE, f"WiFi connected to {self._selected_network.ssid}")
-            self._lcd.render_message("Connected!", self._selected_network.ssid[:16])
-            await asyncio.sleep(1)
-            self._in_menu = False
-            self._wake_manager()  # let the manager discover + connect
+        # Re-selecting the network we're already on is a deliberate refresh:
+        # drop the link and bring it back up on that same network, then rebuild
+        # the PixelBlaze link from scratch (shared success path below).
+        refresh = (password is None and ssid == self._ssid
+                   and await wifi_manager.is_connected())
+
+        if not refresh and password is None and network.secured:
+            known = await wifi_manager.known_ssids()
+            if ssid not in known:
+                self._prompt_password(network)     # unknown secured net -> ask
+                return
+
+        if refresh:
+            await wifi_manager.prefer(ssid)
+            ok = await self._run_with_spinner("Reconnecting", ssid,
+                                              wifi_manager.reconnect(ssid))
         else:
-            log.log(log.ERROR, f"WiFi connect failed for {self._selected_network.ssid}")
-            self._lcd.render_message("Connect failed", "Try again?")
-            await asyncio.sleep(2)
-            await self._wifi_scan_flow()
+            # "Joining WiFi" (not "Connecting to") so it reads as the WiFi step,
+            # distinct from the PixelBlaze "Connecting to <device>" that follows.
+            ok = await self._run_with_spinner("Joining WiFi", ssid,
+                                              wifi_manager.connect(ssid, password))
+
+        if ok:
+            log.log(log.CHANGE, f"WiFi connected to {ssid}")
+            self._ssid = ssid
+            if not refresh:
+                await wifi_manager.prefer(ssid)    # keep the user's choice sticky
+            self._lcd.render_message("Connected!", ssid[:16])
+            await asyncio.sleep(1)
+            # (Re)joining drops any existing PixelBlaze link, so rebuild it from
+            # scratch: tear down and wipe the recovery target so the manager
+            # does a FRESH discovery here instead of hammering a stale IP. This
+            # is also why coming back to a network re-finds the PixelBlaze.
+            self._teardown_client()
+            self._connected_device = None
+            self._reconnect_target = None
+            self._reconnect_attempts = 0
+            self._recovery_started_at = 0.0
+            self._force_picker = False
+            self._in_menu = False
+            self._wake_manager()                   # -> fresh discovery + connect
+        else:
+            log.log(log.ERROR, f"WiFi connect failed for {ssid}")
+            if not refresh and network.secured:
+                # A stored password can be stale, or a typed one wrong — re-ask.
+                self._lcd.render_message("Wrong password?", "try again")
+                await asyncio.sleep(1.5)
+                self._prompt_password(network)
+            else:
+                self._lcd.render_message("Connect failed", "try again")
+                await asyncio.sleep(2)
+                await self._wifi_scan_flow()
+
+    def _prompt_password(self, network):
+        self._selected_network = network
+        self._screen = PasswordEntryScreen(
+            ssid=network.ssid, on_submit=self._on_password_submit, on_cancel=lambda: None)
+        self._screen.render(self._lcd)
+
+    def _on_password_submit(self, password: str):
+        asyncio.ensure_future(self._wifi_join(self._selected_network, password))
 
     def _make_settings(self) -> SettingsScreen:
         return SettingsScreen(

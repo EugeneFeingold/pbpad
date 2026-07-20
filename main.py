@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import os
 import signal
 import threading
 import time
@@ -66,6 +67,7 @@ class App(EventsMixin, FlowsMixin, ConnectionMixin, PreviewMixin,
         self._ssid: str = ""              # last-known WiFi network name (for Settings)
         self._selected_network = None
         self._selected_device = None
+        self._wifi_scanning: bool = False  # guard: one scan flow at a time
         self._sleeping: bool = False
         self._dimmed: bool = False
         self._locked: bool = False
@@ -129,6 +131,14 @@ class App(EventsMixin, FlowsMixin, ConnectionMixin, PreviewMixin,
             self._cleanup()
 
     def _cleanup(self):
+        # Every step is isolated: a failure closing one resource must not skip
+        # the others, or a restart leaves GPIO/sockets/LEDs half-torn-down.
+        def _try(fn, *a):
+            try:
+                fn(*a)
+            except Exception as e:
+                log.log(log.ERROR, f"cleanup: {getattr(fn, '__name__', fn)} failed: {e}")
+
         if self._conn_task:
             self._conn_task.cancel()
         if self._fps_task:
@@ -137,13 +147,13 @@ class App(EventsMixin, FlowsMixin, ConnectionMixin, PreviewMixin,
         # racing show() call would hit a torn-down SpiDev handle.
         self._led_thread_stop.set()
         if self._led_thread is not None:
-            self._led_thread.join(timeout=1.0)
-        self._teardown_client()  # also stops the preview client
-        self._encoders.close()
-        self._power.close()
-        self._battery.close()
-        self._leds.close()
-        self._lcd.close()
+            _try(self._led_thread.join, 1.0)
+        _try(self._teardown_client)  # also stops the preview client
+        _try(self._encoders.close)
+        _try(self._power.close)
+        _try(self._battery.close)
+        _try(self._leds.close)
+        _try(self._lcd.close)
 
 
 async def main():
@@ -182,3 +192,10 @@ if __name__ == "__main__":
         log.log(log.INFO, "battery gauge: stored max reset")
     log.log(log.INFO, "pbpad started")
     asyncio.run(main())
+    # Force-exit after clean shutdown. A PixelBlaze WebSocket read can strand a
+    # non-daemon worker thread on a dead socket; that thread would keep the
+    # process — and its bound UDP discovery port (:1889) — alive after SIGTERM,
+    # so the systemd-restarted instance couldn't rediscover anything until a
+    # full reboot freed the port. os._exit skips the atexit thread-join and lets
+    # the kernel reclaim every fd immediately, so a software restart is clean.
+    os._exit(0)

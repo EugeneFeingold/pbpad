@@ -57,6 +57,15 @@ class _SwitchHandler:
         self._loop.call_soon_threadsafe(
             self._queue.put_nowait, ("button_down", self._name)
         )
+        # With no long-press to disambiguate, fire the action immediately on the
+        # PRESS edge. Firing it on release lost fast taps: a release that lands
+        # within the button's debounce window of the press is swallowed, so
+        # when_released never fires and the tap is dropped (~5-10% of quick
+        # presses). when_pressed always fires on the initial press edge.
+        if self._long_event is None:
+            self._loop.call_soon_threadsafe(
+                self._queue.put_nowait, self._short_event
+            )
 
     def _on_held(self):
         self._held = True
@@ -66,7 +75,10 @@ class _SwitchHandler:
         self._loop.call_soon_threadsafe(
             self._queue.put_nowait, ("button_up", self._name)
         )
-        if not self._held:
+        # Long-press mode only: the short event waits for release so a hold can
+        # be reclassified as the long event. (No encoder uses long_event today,
+        # so in practice the short event fires on press above.)
+        if self._long_event is not None and not self._held:
             self._loop.call_soon_threadsafe(self._queue.put_nowait, self._short_event)
         self._held = False
 
