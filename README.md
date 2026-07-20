@@ -20,15 +20,15 @@ WS2812 strip — all from a battery-powered device that fits in one hand.
 - **Battery monitoring** via an LC709203F fuel gauge, with a low-battery
   conservation mode that suspends streaming and shows a charge gauge on the LEDs.
 - **Single-button power** — press to wake from halt, long-press for a clean
-  OS shutdown (see [docs/wiring.html](docs/wiring.html)).
+  OS shutdown (see [docs/wiring.md](docs/wiring.md)).
 - **Wi-Fi management** — scan and join networks from the device, or preload
   known networks at setup time.
 
 ## Documentation
 
-- **[Wiring diagram](docs/wiring.html)** — full GPIO pinout, power path, and
-  the single-button power circuit. Open it in a browser.
-- **[Menu navigation tree](docs/nav_tree.html)** — every screen and how the
+- **[Wiring diagram](docs/wiring.md)** — full GPIO pinout, power path, and
+  the single-button power circuit.
+- **[Menu navigation tree](docs/nav_tree.md)** — every screen and how the
   two encoders move between them.
 
 ## Hardware
@@ -46,7 +46,7 @@ WS2812 strip — all from a battery-powered device that fits in one hand.
 
 Pin assignments live in [config.py](config.py); the exact wiring, including the
 power circuit and the second (software) I²C bus for the fuel gauge, is in
-[docs/wiring.html](docs/wiring.html).
+[docs/wiring.md](docs/wiring.md).
 
 ## Setup (on the Pi)
 
