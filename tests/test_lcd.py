@@ -209,9 +209,11 @@ def test_all_text_goes_through_the_single_primitive():
     the value on the same row had been fixed, the label had not. If you need
     to draw text, add a _draw_text call — do not reach for draw.text()."""
     import inspect
-    from hardware import lcd as lcd_mod
+    from hardware import lcd as lcd_mod, lcd_text, lcd_widgets
 
-    src = inspect.getsource(lcd_mod)
+    # The LCD is split across these modules; scan them all so the invariant
+    # can't be dodged by adding a bare draw.text() in one of the split files.
+    src = "\n".join(inspect.getsource(m) for m in (lcd_mod, lcd_text, lcd_widgets))
     allowed = inspect.getsource(lcd_mod.LCD._draw_text)
     outside = src.replace(allowed, "")
     # Strip comments/docstrings mentioning it, then look for real calls.

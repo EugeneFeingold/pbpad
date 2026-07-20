@@ -17,7 +17,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Optional
 
-import config
+from conf import config
 import log
 
 

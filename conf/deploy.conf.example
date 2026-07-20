@@ -1,10 +1,11 @@
 # pbpad deploy configuration.
 #
-# Copy this file to "deploy.conf" (same folder) and set your device's hostname:
-#     cp deploy.conf.example deploy.conf      # macOS / Linux
-#     copy deploy.conf.example deploy.conf     & rem Windows
+# Copy this file to "deploy.conf" (same folder) and set your device's hostname.
+# From the repo root:
+#     cp conf/deploy.conf.example conf/deploy.conf       # macOS / Linux
+#     copy conf\deploy.conf.example conf\deploy.conf     & rem Windows
 #
-# deploy.conf is git-ignored and never committed. It is read by both
+# conf/deploy.conf is git-ignored and never committed. It is read by both
 # deploy.sh (macOS/Linux) and deploy.bat (Windows). Environment variables of
 # the same name override anything set here.
 #

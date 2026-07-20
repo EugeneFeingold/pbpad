@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-import config
+from conf import config
 import store
 
 

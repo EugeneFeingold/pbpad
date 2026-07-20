@@ -18,7 +18,7 @@ from tests import _fakes  # noqa: E402
 _fakes.install()
 
 import pytest  # noqa: E402
-import config  # noqa: E402
+from conf import config  # noqa: E402
 import log  # noqa: E402
 import store  # noqa: E402
 

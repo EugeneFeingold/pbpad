@@ -1,7 +1,7 @@
 """Tests for pb/preview.py — the second-WebSocket preview stream client."""
 import pytest
 
-import config
+from conf import config
 import pixelblaze
 import pb.preview as prev
 from pb.preview import PreviewClient

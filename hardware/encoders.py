@@ -2,7 +2,7 @@ import asyncio
 import time
 from typing import Optional
 from gpiozero import RotaryEncoder, Button
-import config
+from conf import config
 
 _LONG_PRESS_TIME = 1.0
 _BOUNCE_WINDOW = 0.05

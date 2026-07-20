@@ -4,9 +4,12 @@ from types import SimpleNamespace
 
 import pytest
 
-import config
+from conf import config
 import main
 from main import App
+from app import connection as app_connection
+from app import preview as app_preview
+from app import util as app_util
 from pb.discovery import PixelblazeDevice
 from wifi import manager as wifi_manager
 from ui.screens import SettingsScreen, InfoScreen, ReconnectScreen, MainScreen
@@ -47,13 +50,13 @@ def test_fmt_uptime_hours(monkeypatch, tmp_path):
 
 
 def test_subnet_prefix(monkeypatch):
-    monkeypatch.setattr(main, "_local_ip", lambda: "10.0.0.42")
-    assert main._subnet_prefix() == "10.0.0."
+    monkeypatch.setattr(app_util, "_local_ip", lambda: "10.0.0.42")
+    assert app_util._subnet_prefix() == "10.0.0."
 
 
 def test_subnet_prefix_empty(monkeypatch):
-    monkeypatch.setattr(main, "_local_ip", lambda: None)
-    assert main._subnet_prefix() == ""
+    monkeypatch.setattr(app_util, "_local_ip", lambda: None)
+    assert app_util._subnet_prefix() == ""
 
 
 # --- _extract_picks (static) ----------------------------------------------
@@ -264,7 +267,7 @@ async def test_preview_client_started_with_frame_callback(app, monkeypatch):
         def start(self):
             made["started"] = True
 
-    monkeypatch.setattr(main, "PreviewClient", FakePreview)
+    monkeypatch.setattr(app_preview, "PreviewClient", FakePreview)
     app._led_brightness = 5
     app._low_battery = False
     app._start_preview_client("1.2.3.4")
@@ -486,7 +489,7 @@ class _FailClient:
 
 
 async def test_recover_failure_keeps_target(app, monkeypatch):
-    monkeypatch.setattr(main, "PixelblazeClient", _FailClient)
+    monkeypatch.setattr(app_connection, "PixelblazeClient", _FailClient)
     target = PixelblazeDevice(ip="1.2.3.4", name="X", device_id=1)
     app._reconnect_target = target
     await app._recover_connection()
@@ -496,7 +499,7 @@ async def test_recover_failure_keeps_target(app, monkeypatch):
 
 
 async def test_recover_shows_reconnect_screen(app, monkeypatch):
-    monkeypatch.setattr(main, "PixelblazeClient", _FailClient)
+    monkeypatch.setattr(app_connection, "PixelblazeClient", _FailClient)
     app._reconnect_target = PixelblazeDevice(ip="1.2.3.4", name="Living Room", device_id=1)
     app._screen = None
     await app._recover_connection()
@@ -507,18 +510,15 @@ async def test_recover_escalates_to_discovery(app, monkeypatch):
     # After DIRECT_ATTEMPTS, recovery uses discovery to find the same device
     # by name (catches a DHCP IP change) instead of the stale IP.
     monkeypatch.setattr(app, "_start_preview_client", lambda ip: None)
-    seen_ips = []
-
-    real_client = main.PixelblazeClient
 
     async def fake_discover():
         # Same name, NEW ip.
         return [PixelblazeDevice(ip="5.5.5.5", name="Living Room", device_id=9)]
-    monkeypatch.setattr(main, "discover", fake_discover)
+    monkeypatch.setattr(app_connection, "discover", fake_discover)
 
     target = PixelblazeDevice(ip="1.2.3.4", name="Living Room", device_id=1)
     app._reconnect_target = target
-    app._reconnect_attempts = main.DIRECT_ATTEMPTS   # next attempt escalates
+    app._reconnect_attempts = app_connection.DIRECT_ATTEMPTS   # next attempt escalates
     await app._recover_connection()
     # Reconnected to the same name at the new IP.
     assert app._connected_device.ip == "5.5.5.5"
@@ -529,10 +529,10 @@ async def test_recover_escalates_to_discovery(app, monkeypatch):
 async def test_recover_discovery_not_found_keeps_target(app, monkeypatch):
     async def fake_discover():
         return [PixelblazeDevice(ip="5.5.5.5", name="SomeOtherPB", device_id=9)]
-    monkeypatch.setattr(main, "discover", fake_discover)
+    monkeypatch.setattr(app_connection, "discover", fake_discover)
     target = PixelblazeDevice(ip="1.2.3.4", name="Living Room", device_id=1)
     app._reconnect_target = target
-    app._reconnect_attempts = main.DIRECT_ATTEMPTS
+    app._reconnect_attempts = app_connection.DIRECT_ATTEMPTS
     await app._recover_connection()
     assert app._reconnect_target is target   # not found, keep trying
 
@@ -542,9 +542,9 @@ async def test_recovery_watchdog_restarts_when_stuck(app, monkeypatch):
     # restart the process rather than stay wedged.
     restarted = []
     monkeypatch.setattr(app, "_restart_software", lambda: restarted.append(True))
-    monkeypatch.setattr(main, "PixelblazeClient", _FailClient)
+    monkeypatch.setattr(app_connection, "PixelblazeClient", _FailClient)
     app._reconnect_target = PixelblazeDevice(ip="1.2.3.4", name="X", device_id=1)
-    app._recovery_started_at = main.time.monotonic() - (main.RECOVERY_RESTART_SEC + 1)
+    app._recovery_started_at = main.time.monotonic() - (app_connection.RECOVERY_RESTART_SEC + 1)
     await app._recover_connection()
     assert restarted == [True]
 
@@ -552,7 +552,7 @@ async def test_recovery_watchdog_restarts_when_stuck(app, monkeypatch):
 async def test_recovery_watchdog_quiet_before_threshold(app, monkeypatch):
     restarted = []
     monkeypatch.setattr(app, "_restart_software", lambda: restarted.append(True))
-    monkeypatch.setattr(main, "PixelblazeClient", _FailClient)
+    monkeypatch.setattr(app_connection, "PixelblazeClient", _FailClient)
     app._reconnect_target = PixelblazeDevice(ip="1.2.3.4", name="X", device_id=1)
     app._recovery_started_at = main.time.monotonic()   # just started
     await app._recover_connection()

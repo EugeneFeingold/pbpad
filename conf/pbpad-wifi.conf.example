@@ -1,7 +1,7 @@
 # pbpad WiFi credentials — EXAMPLE / TEMPLATE
 #
 # Copy this to the Pi (NOT into the repo) and fill in real values:
-#     scp pbpad-wifi.conf.example pi@<host>:~/.pbpad-wifi.conf
+#     scp conf/pbpad-wifi.conf.example pi@<host>:~/.pbpad-wifi.conf
 #     ssh pi@<host> "chmod 600 ~/.pbpad-wifi.conf"
 # then edit ~/.pbpad-wifi.conf. setup.sh reads it and preloads the networks
 # into NetworkManager. The real file is git-ignored and never committed.

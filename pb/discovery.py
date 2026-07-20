@@ -5,7 +5,7 @@ import struct
 import time
 from dataclasses import dataclass
 
-import config
+from conf import config
 import log
 
 _BEACON_MAGIC = 42        # first word of a PixelBlaze beacon packet

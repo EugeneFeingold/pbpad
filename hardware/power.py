@@ -4,7 +4,7 @@ from typing import Callable
 
 from gpiozero import Button, DigitalOutputDevice
 
-import config
+from conf import config
 import log
 
 

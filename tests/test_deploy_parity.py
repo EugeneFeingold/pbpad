@@ -54,6 +54,7 @@ def test_tests_are_not_deployed():
 @pytest.mark.parametrize("fragment", [
     "--exclude=__pycache__",          # never ship stale bytecode
     "--overwrite",                    # GNU tar must unlink before writing
+    "--delay-directory-restore",      # let a NEW dir be written before its 555 mode
     "--warning=no-unknown-keyword",   # silence bsdtar SCHILY.fflags headers
     "chmod +x *.sh",                  # execute bit lost in the round-trip
     "chown -R",                       # reclaim root-owned files before extract
@@ -83,13 +84,13 @@ def test_both_load_the_config_file():
 
 def test_config_example_is_committed():
     # The sample must exist so users know the format; the real one is ignored.
-    assert os.path.exists(os.path.join(ROOT, "deploy.conf.example"))
+    assert os.path.exists(os.path.join(ROOT, "conf", "deploy.conf.example"))
 
 
 def test_real_config_is_gitignored():
     gitignore = read(os.path.join(ROOT, ".gitignore"))
-    assert re.search(r"^deploy\.conf$", gitignore, re.MULTILINE), \
-        "deploy.conf must be git-ignored so a real hostname is never committed"
+    assert re.search(r"^conf/deploy\.conf$", gitignore, re.MULTILINE), \
+        "conf/deploy.conf must be git-ignored so a real hostname is never committed"
 
 
 def test_both_report_failure():

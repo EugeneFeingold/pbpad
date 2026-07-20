@@ -1,7 +1,7 @@
 # Wiring
 
 The hardware in this build, every pin on the Pi's 40-pin header, and the power
-path. GPIO functions come from [`config.py`](../config.py); the power subsystem
+path. GPIO functions come from [`conf/config.py`](../conf/config.py); the power subsystem
 from the build notes.
 
 > The Pi is powered through the **5V header pins, not micro-USB**.

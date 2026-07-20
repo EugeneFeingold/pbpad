@@ -9,7 +9,7 @@ fails to parse and silently resets every setting to defaults."""
 import json
 import os
 
-import config
+from conf import config
 import log
 
 _data = None

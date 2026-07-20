@@ -2,7 +2,7 @@
 
 Every screen on the 128×64 OLED and how you move between them. The whole UI is
 one cursored list, driven by two push-rotary knobs. Generated from
-[`ui/screens.py`](../ui/screens.py).
+[`ui/screens/`](../ui/screens).
 
 ## Controls
 

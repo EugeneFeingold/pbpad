@@ -12,10 +12,10 @@ page column, bit i is the pixel one row down (LSB = top), so the app and the
 splash render identically.
 
 Usage:
-    python gen_splash.py                      # default "Starting..." -> splash.fb
-    python gen_splash.py "Booting"            # custom text
-    python gen_splash.py "Top\nBottom"        # \n stacks lines, centered
-    python gen_splash.py "Hi" -o other.fb     # custom output file
+    python scripts/gen_splash.py                      # default "Starting..." -> splash.fb
+    python scripts/gen_splash.py "Booting"            # custom text
+    python scripts/gen_splash.py "Top\nBottom"        # \n stacks lines, centered
+    python scripts/gen_splash.py "Hi" -o other.fb     # custom output file
 
 Run it whenever you want to change the splash text, then deploy splash.fb.
 """

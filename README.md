@@ -44,7 +44,7 @@ WS2812 strip — all from a battery-powered device that fits in one hand.
 | 3.7V LiPo cell | Power |
 | Momentary push button | Power on / off |
 
-Pin assignments live in [config.py](config.py); the exact wiring, including the
+Pin assignments live in [conf/config.py](conf/config.py); the exact wiring, including the
 power circuit and the second (software) I²C bus for the fuel gauge, is in
 [docs/wiring.md](docs/wiring.md).
 
@@ -75,7 +75,7 @@ setup time, copy the example file to `~/.pbpad-wifi.conf` on the Pi and fill in
 your own values:
 
 ```bash
-cp pbpad-wifi.conf.example ~/.pbpad-wifi.conf
+cp conf/pbpad-wifi.conf.example ~/.pbpad-wifi.conf
 chmod 600 ~/.pbpad-wifi.conf
 # edit ~/.pbpad-wifi.conf — one network per line: SSID|password|priority
 ```
@@ -94,7 +94,14 @@ service. Keep the two in sync — a test enforces feature parity between them.
 deploy.bat           # Windows
 ```
 
-Override the defaults with environment variables:
+Set your Pi's hostname once in a git-ignored config file (copy the template):
+
+```bash
+cp conf/deploy.conf.example conf/deploy.conf
+# edit conf/deploy.conf — set PBPAD_PI=pi@your-pi.local
+```
+
+Environment variables of the same name still override the file for one-offs:
 
 ```bash
 PBPAD_PI=pi@yourhost.local PBPAD_KEY=~/.ssh/id_pbpad ./deploy.sh
@@ -118,14 +125,17 @@ than wall-clock time.
 ## Project layout
 
 ```
-main.py            App loop, event wiring, state machine
-config.py          Pin map and all tunables
+main.py            App composition + run/cleanup lifecycle
+app/               App behavior, split by role: events, flows, connection,
+                   preview (LED rendering), battery, power, util
+conf/              config.py (pin map + tunables) and the *.conf templates
 store.py           Persisted settings (JSON)
 splash.py          Early-boot OLED splash (own systemd service)
-hardware/          OLED, encoders, LEDs, battery gauge, power button
+hardware/          OLED (lcd*), encoders, LEDs, battery gauge, power button
 pb/                PixelBlaze client, discovery, and preview stream
-ui/screens.py      Screen classes and the menu tree
+ui/screens/        Screen classes and the menu tree
 wifi/              Network scan and NetworkManager control
+scripts/           Dev tools (gen_splash.py bakes the boot splash)
 docs/              Wiring diagram and navigation-tree reference pages
 tests/             pytest suite (hardware faked)
 ```

@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional
 
-import config
+from conf import config
 import log
 
 try:

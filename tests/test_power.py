@@ -1,7 +1,7 @@
 """Tests for hardware/power.py — power button + MOSFET wake-gate."""
 import pytest
 
-import config
+from conf import config
 from hardware.power import PowerButton
 
 

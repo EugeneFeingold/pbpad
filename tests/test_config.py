@@ -1,5 +1,5 @@
 """Sanity checks on config.py constants and their invariants."""
-import config
+from conf import config
 
 
 def test_led_groups_match_count():
