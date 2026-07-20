@@ -5,6 +5,10 @@
 pbpad-wifi.conf
 *.secret
 
+# --- local machine config -----------------------------------------------------
+# Real deploy target (your Pi's hostname); copy from deploy.conf.example.
+deploy.conf
+
 # --- runtime / device state ---------------------------------------------------
 logs/
 *.log

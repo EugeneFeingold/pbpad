@@ -75,6 +75,23 @@ def test_both_support_env_overrides(var):
     assert var in read(SH), f"deploy.sh missing env override: {var}"
 
 
+def test_both_load_the_config_file():
+    # Settings should come from a git-ignored deploy.conf, not just env vars.
+    assert "deploy.conf" in read(BAT), "deploy.bat does not read deploy.conf"
+    assert "deploy.conf" in read(SH), "deploy.sh does not read deploy.conf"
+
+
+def test_config_example_is_committed():
+    # The sample must exist so users know the format; the real one is ignored.
+    assert os.path.exists(os.path.join(ROOT, "deploy.conf.example"))
+
+
+def test_real_config_is_gitignored():
+    gitignore = read(os.path.join(ROOT, ".gitignore"))
+    assert re.search(r"^deploy\.conf$", gitignore, re.MULTILINE), \
+        "deploy.conf must be git-ignored so a real hostname is never committed"
+
+
 def test_both_report_failure():
     assert "Deploy FAILED." in read(BAT)
     assert "Deploy FAILED." in read(SH)

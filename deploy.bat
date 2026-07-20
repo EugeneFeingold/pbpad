@@ -6,13 +6,21 @@ rem macOS/Linux equivalent: deploy.sh -- KEEP THE TWO IN SYNC. Any change to
 rem the file list, tar flags, or remote commands must be made in BOTH scripts.
 rem tests/test_deploy_parity.py enforces this.
 rem
-rem Override the defaults with env vars if needed:
-rem   set PBPAD_PI=pi@host
-rem   set PBPAD_DEST=/home/pi/dev/pbpad
-rem   set PBPAD_KEY=%USERPROFILE%\.ssh\id_pbpad
+rem Configuration -- your Pi's hostname etc. -- comes from (highest priority first):
+rem   1. environment variables: PBPAD_PI / PBPAD_DEST / PBPAD_KEY
+rem   2. deploy.conf beside this script (copy deploy.conf.example to create it)
+rem   3. the built-in defaults below
+rem deploy.conf is git-ignored; keep your device's hostname there, not the repo.
 setlocal
 cd /d "%~dp0"
 
+rem Load deploy.conf if present. `if not defined` means an env var of the same
+rem name (set before running) keeps priority; lines starting with # are skipped.
+if exist "deploy.conf" (
+    for /f "usebackq eol=# tokens=1* delims==" %%a in ("deploy.conf") do (
+        if not defined %%a set "%%a=%%b"
+    )
+)
 if not defined PBPAD_PI   set "PBPAD_PI=pi@raspberrypi.local"
 if not defined PBPAD_DEST set "PBPAD_DEST=/home/pi/dev/pbpad"
 if not defined PBPAD_KEY  set "PBPAD_KEY=%USERPROFILE%\.ssh\id_pbpad"

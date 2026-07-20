@@ -7,15 +7,25 @@
 # file list, tar flags, or remote commands must be made in BOTH scripts.
 # tests/test_deploy_parity.py enforces this.
 #
-# Override the defaults with env vars if needed:
-#   PBPAD_PI=pi@host PBPAD_DEST=/path PBPAD_KEY=~/.ssh/key ./deploy.sh
+# Configuration -- your Pi's hostname etc. -- comes from (highest priority first):
+#   1. environment variables: PBPAD_PI / PBPAD_DEST / PBPAD_KEY
+#   2. deploy.conf beside this script (copy deploy.conf.example to create it)
+#   3. the built-in defaults below
+# deploy.conf is git-ignored; keep your device's hostname there, not in the repo.
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-PI="${PBPAD_PI:-pi@raspberrypi.local}"
-DEST="${PBPAD_DEST:-/home/pi/dev/pbpad}"
-KEY="${PBPAD_KEY:-$HOME/.ssh/id_pbpad}"
+# Values already set in the environment win over the config file, so remember
+# them before sourcing deploy.conf (which assigns the same PBPAD_* names).
+_env_pi="${PBPAD_PI:-}"; _env_dest="${PBPAD_DEST:-}"; _env_key="${PBPAD_KEY:-}"
+if [ -f deploy.conf ]; then
+    # shellcheck disable=SC1091
+    . ./deploy.conf
+fi
+PI="${_env_pi:-${PBPAD_PI:-pi@raspberrypi.local}}"
+DEST="${_env_dest:-${PBPAD_DEST:-/home/pi/dev/pbpad}}"
+KEY="${_env_key:-${PBPAD_KEY:-$HOME/.ssh/id_pbpad}}"
 SSH_OPTS=(-i "$KEY" -o BatchMode=yes -o ConnectTimeout=10)
 
 # Keep this list identical to deploy.bat. Tests, conftest.py and pytest.ini are

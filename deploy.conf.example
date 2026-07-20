@@ -1,0 +1,23 @@
+# pbpad deploy configuration.
+#
+# Copy this file to "deploy.conf" (same folder) and set your device's hostname:
+#     cp deploy.conf.example deploy.conf      # macOS / Linux
+#     copy deploy.conf.example deploy.conf     & rem Windows
+#
+# deploy.conf is git-ignored and never committed. It is read by both
+# deploy.sh (macOS/Linux) and deploy.bat (Windows). Environment variables of
+# the same name override anything set here.
+#
+# Format: KEY=value, one per line. No spaces around "=", no quotes. Lines
+# starting with # are ignored.
+
+# SSH target -- user@hostname of the Pi to deploy to.
+PBPAD_PI=pi@raspberrypi.local
+
+# Destination directory on the Pi.
+PBPAD_DEST=/home/pi/dev/pbpad
+
+# SSH private key. Leave this commented to use the per-platform default
+#   macOS/Linux: ~/.ssh/id_pbpad      Windows: %USERPROFILE%\.ssh\id_pbpad
+# If you set it, use an absolute path (~ is not expanded on Windows).
+#PBPAD_KEY=/home/you/.ssh/id_pbpad
