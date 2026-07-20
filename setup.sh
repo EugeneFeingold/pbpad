@@ -67,6 +67,32 @@ pi ALL=(ALL) NOPASSWD: /sbin/poweroff, /sbin/reboot
 EOF
 sudo chmod 440 /etc/sudoers.d/pbpad-poweroff
 
+# Let the pi user (which the pbpad service runs as) control NetworkManager.
+# NM gates scan/connect/modify behind polkit and only grants them to users with
+# an active login session. A systemd service has no session, so those actions
+# are denied and pbpad's WiFi scan/join silently fail (lists still work because
+# reading is allowed). Grant the control actions explicitly. Two formats so this
+# works on both polkit 0.105 (Bullseye: .pkla) and >= 0.106 (Bookworm: .rules).
+sudo install -d /etc/polkit-1/localauthority/50-local.d
+sudo tee /etc/polkit-1/localauthority/50-local.d/10-pbpad-nm.pkla > /dev/null << 'EOF'
+[pbpad: let the pi user control NetworkManager]
+Identity=unix-user:pi
+Action=org.freedesktop.NetworkManager.*
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
+EOF
+sudo install -d /etc/polkit-1/rules.d
+sudo tee /etc/polkit-1/rules.d/50-pbpad-nm.rules > /dev/null << 'EOF'
+// pbpad: let the pi user control NetworkManager (polkit >= 0.106)
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0 &&
+        subject.user === "pi") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+
 # Preload known WiFi networks into NetworkManager with a high autoconnect
 # priority (default is 0, so these preempt any lower-priority profile when in
 # range). Credentials live in ~/.pbpad-wifi.conf on the Pi (NOT the repo) —

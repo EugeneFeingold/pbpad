@@ -115,10 +115,11 @@ class ReconnectScreen(Screen):
 
 
 class WifiScanScreen(ListScreen):
-    def __init__(self, networks, on_select: Callable):
+    def __init__(self, networks, on_select: Callable, current_ssid: Optional[str] = None):
         super().__init__()
         self._networks = networks
         self._on_select = on_select
+        self._current_ssid = current_ssid
 
     def title(self):
         return "WiFi"
@@ -127,15 +128,19 @@ class WifiScanScreen(ListScreen):
         return "back_from_wifi"
 
     def rows(self):
-        out = [Row(n.ssid, "*" if n.secured else "", on_open=self._pick(n))
-               for n in self._networks]
+        # Checkmark marks the network we're currently connected to (like the
+        # device picker), NOT whether a network is secured — that was confusing.
+        out = []
+        for n in self._networks:
+            is_current = self._current_ssid is not None and n.ssid == self._current_ssid
+            out.append(Row(n.ssid, on_open=self._pick(n), mark=is_current))
         out.append(Row("Rescan", on_open=lambda: "wifi_scan"))
         return out
 
     def _pick(self, net):
         def _open():
             self._on_select(net)
-            return "password_entry"
+            return "wifi_join"      # app decides whether a password is needed
         return _open
 
 
@@ -172,8 +177,10 @@ class PasswordEntryScreen(Screen):
         elif event == ("press", "enc1"):
             c = self._current_char()
             if c == _SEND:
+                # The submit callback drives the connect flow (spinner + result);
+                # don't also push a ConnectingScreen or it double-renders.
                 self._on_submit(self._password)
-                return "connecting"
+                return None
             self._password += c
         elif event == ("press", "enc2"):
             if self._password:

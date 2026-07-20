@@ -23,21 +23,32 @@ async def scan() -> list[WifiNetwork]:
 
 
 async def _scan_nmcli() -> Optional[list]:
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY",
-            "dev", "wifi", "list", "--rescan", "yes",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        stdout, _ = await proc.communicate()
-        if proc.returncode != 0:
+    """Scan via NetworkManager. Returns None only if nmcli is missing or errors
+    outright (the caller then falls back to iwlist)."""
+    # Force a fresh scan first, but NetworkManager rate-limits rescans (~once
+    # per 10s) and refuses one requested too soon. If "--rescan yes" is refused
+    # (non-zero exit), retry with "--rescan no" to list the cached results
+    # rather than dropping to the crippled iwlist path. Symptom before this:
+    # after a few quick rescans the newest network vanished from the list.
+    for rescan in ("yes", "no"):
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY",
+                "dev", "wifi", "list", "--rescan", rescan,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
             return None
-    except FileNotFoundError:
-        return None
+        stdout, _ = await proc.communicate()
+        if proc.returncode == 0:
+            return _parse_nmcli(stdout)
+    return None
 
-    networks: list[WifiNetwork] = []
-    seen: set[str] = set()
+
+def _parse_nmcli(stdout: bytes) -> list:
+    networks: list = []
+    seen: set = set()
     for line in stdout.decode().splitlines():
         parts = line.split(":")
         if len(parts) < 3:

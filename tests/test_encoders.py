@@ -51,18 +51,33 @@ def make_switch(fake_queue, fake_loop):
                           short_event=("press", "enc1"), long_event=None)
 
 
-def test_press_emits_button_down(fake_queue, fake_loop):
-    sw = make_switch(fake_queue, fake_loop)
+def test_press_fires_immediately_without_long_event(fake_queue, fake_loop):
+    # No long-press to disambiguate -> the action fires on the PRESS edge, so a
+    # fast tap whose release is eaten by debounce can't be lost.
+    sw = make_switch(fake_queue, fake_loop)   # long_event=None
     sw._on_pressed()
-    assert fake_queue.items == [("button_down", "enc1")]
+    assert fake_queue.items == [("button_down", "enc1"), ("press", "enc1")]
 
 
-def test_short_release_emits_press(fake_queue, fake_loop):
+def test_release_only_reports_button_up_without_long_event(fake_queue, fake_loop):
     sw = make_switch(fake_queue, fake_loop)
     sw._on_pressed()
     sw._on_released()
-    assert ("button_up", "enc1") in fake_queue.items
-    assert ("press", "enc1") in fake_queue.items
+    # press fired on the down edge; release must NOT emit a second press.
+    assert fake_queue.items == [("button_down", "enc1"), ("press", "enc1"),
+                                ("button_up", "enc1")]
+    assert fake_queue.items.count(("press", "enc1")) == 1
+
+
+def test_long_event_mode_defers_press_to_release(fake_queue, fake_loop):
+    # When a long-press exists, the short event still waits for release so a
+    # hold can be reclassified — and it must NOT also fire on press.
+    sw = _SwitchHandler(17, "enc1", fake_queue, fake_loop,
+                        ("press", "enc1"), long_event=("long", "enc1"))
+    sw._on_pressed()
+    assert ("press", "enc1") not in fake_queue.items    # not on press
+    sw._on_released()
+    assert ("press", "enc1") in fake_queue.items         # on release (not held)
 
 
 def test_held_suppresses_short_press(fake_queue, fake_loop):

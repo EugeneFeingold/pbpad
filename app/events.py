@@ -9,7 +9,6 @@ import time
 
 import log
 from ui.screens import (
-    PasswordEntryScreen,
     ConnectingScreen,
     IPEntryScreen,
     InfoScreen,
@@ -90,6 +89,12 @@ class EventsMixin:
                 self._show_lock_hint()
                 continue
 
+            # A press while BOTH knobs are down is the lock gesture forming, not
+            # a navigation press. Presses now fire on the press edge, so without
+            # this a knob in a lock-combo would also trigger its screen action.
+            if event[0] == "press" and self._enc1_down and self._enc2_down:
+                continue
+
             log.log(log.ENCODER, str(event))
 
             # Settings is reached in-list now (the "Settings ->" row), not by a
@@ -128,14 +133,10 @@ class EventsMixin:
             self._pop_screen()
         elif name == "wifi_scan":
             asyncio.ensure_future(self._wifi_scan_flow())
-        elif name == "password_entry":
-            self._replace_screen(PasswordEntryScreen(
-                ssid=self._selected_network.ssid,
-                on_submit=self._on_password_submit,
-                on_cancel=lambda: None,
-            ))
-        elif name == "connecting":
-            self._replace_screen(ConnectingScreen())
+        elif name == "wifi_join":
+            # A network was picked in the list; the flow decides whether it can
+            # use stored credentials or needs to prompt for a password.
+            asyncio.ensure_future(self._wifi_join(self._selected_network))
         elif name == "ip_entry":
             self._push_screen(IPEntryScreen(
                 on_submit=self._on_ip_submit,

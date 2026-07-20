@@ -169,7 +169,12 @@ class LCD(LCDTextMixin, LCDWidgetsMixin):
                 # lines instead of running off the display.
                 line_h = self._font_h + 1
                 room = max(1, (body_bot - body_top) // line_h)
-                lines = self._wrap_text(line1, body_px, max_lines=room)
+                # list(...) COPIES the memoised wrap result. Without the copy,
+                # `lines += ...` would extend _wrap_text's cached list in place,
+                # so line1's cache would grow by line2 every call — stacking a
+                # stale body line onto every subsequent frame (the doubled
+                # "Please wait…" / a previous network's name bleeding through).
+                lines = list(self._wrap_text(line1, body_px, max_lines=room))
                 if line2:
                     lines += self._wrap_text(line2, body_px,
                                              max_lines=max(1, room - len(lines)))

@@ -12,7 +12,8 @@ from app import preview as app_preview
 from app import util as app_util
 from pb.discovery import PixelblazeDevice
 from wifi import manager as wifi_manager
-from ui.screens import SettingsScreen, InfoScreen, ReconnectScreen, MainScreen
+from wifi import scanner as wifi_scanner
+from ui.screens import SettingsScreen, InfoScreen, ReconnectScreen, MainScreen, WifiScanScreen
 
 
 @pytest.fixture
@@ -617,6 +618,192 @@ async def test_cancel_reconnect_clears_target(app, monkeypatch):
     assert app._reconnect_target is None
     assert app._reconnect_attempts == 0
     assert app._force_picker is True   # falls into the picker after search
+
+
+# --- WiFi join flow --------------------------------------------------------
+def _spinner_passthrough(monkeypatch, app):
+    async def spin(line1, line2, coro):
+        return await coro
+    monkeypatch.setattr(app, "_run_with_spinner", spin)
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr(asyncio, "sleep", lambda s: real_sleep(0))
+
+
+async def test_wifi_scan_flow_shows_list_without_connecting(app, monkeypatch):
+    # Scanning must NOT auto-connect — that made the device bounce between
+    # networks the user never picked. It just shows the picker.
+    _spinner_passthrough(monkeypatch, app)
+    connects = []
+
+    async def fake_scan():
+        return [SimpleNamespace(ssid="A", secured=True)]
+
+    async def fake_connect(*a, **k):
+        connects.append(a)
+        return True
+
+    async def ssid():
+        return "A"
+
+    monkeypatch.setattr(wifi_scanner, "scan", fake_scan)
+    monkeypatch.setattr(wifi_manager, "connect", fake_connect)
+    monkeypatch.setattr(wifi_manager, "current_ssid", ssid)
+    await app._wifi_scan_flow()
+    assert connects == []                                # nothing was connected
+    assert isinstance(app._screen, WifiScanScreen)
+    assert app._screen._current_ssid == "A"             # connected one is marked
+
+
+async def test_wifi_join_known_network_skips_password(app, monkeypatch):
+    # Selecting the network we already have a stored password for must connect
+    # with the stored creds, not prompt.
+    _spinner_passthrough(monkeypatch, app)
+    connects = []
+    prefers = []
+    prompted = []
+
+    async def known():
+        return {"HomeNet"}
+
+    async def fake_connect(ssid, password=None):
+        connects.append((ssid, password))
+        return True
+
+    async def fake_prefer(ssid):
+        prefers.append(ssid)
+
+    monkeypatch.setattr(wifi_manager, "known_ssids", known)
+    monkeypatch.setattr(wifi_manager, "connect", fake_connect)
+    monkeypatch.setattr(wifi_manager, "prefer", fake_prefer)
+    monkeypatch.setattr(app, "_prompt_password", lambda net: prompted.append(net))
+
+    await app._wifi_join(SimpleNamespace(ssid="HomeNet", secured=True))
+    assert connects == [("HomeNet", None)]   # stored creds, no password passed
+    assert prompted == []                    # never prompted
+    assert prefers == ["HomeNet"]            # kept sticky
+
+
+async def test_wifi_join_unknown_secured_prompts(app, monkeypatch):
+    connects = []
+    prompted = []
+
+    async def known():
+        return set()
+
+    async def fake_connect(*a, **k):
+        connects.append(a)
+        return True
+
+    monkeypatch.setattr(wifi_manager, "known_ssids", known)
+    monkeypatch.setattr(wifi_manager, "connect", fake_connect)
+    monkeypatch.setattr(app, "_prompt_password", lambda net: prompted.append(net))
+
+    net = SimpleNamespace(ssid="Stranger", secured=True)
+    await app._wifi_join(net)
+    assert prompted == [net]                 # asked for a password
+    assert connects == []                    # didn't try to connect blind
+
+
+async def test_wifi_join_same_network_refreshes(app, monkeypatch):
+    # Re-selecting the current network is a deliberate refresh: drop + reconnect
+    # that same network and rebuild the PixelBlaze link.
+    _spinner_passthrough(monkeypatch, app)
+    reconnects = []
+    prefers = []
+    torn = []
+
+    async def yes():
+        return True
+
+    async def fake_reconnect(ssid):
+        reconnects.append(ssid)
+        return True
+
+    async def fake_prefer(ssid):
+        prefers.append(ssid)
+
+    monkeypatch.setattr(wifi_manager, "is_connected", yes)
+    monkeypatch.setattr(wifi_manager, "reconnect", fake_reconnect)
+    monkeypatch.setattr(wifi_manager, "prefer", fake_prefer)
+    monkeypatch.setattr(app, "_teardown_client", lambda: torn.append(True))
+    app._ssid = "HomeNet"
+    app._reconnect_target = PixelblazeDevice(ip="1.2.3.4", name="PB", device_id=1)
+
+    await app._wifi_join(SimpleNamespace(ssid="HomeNet", secured=True))
+    assert reconnects == ["HomeNet"]         # dropped + rejoined that network
+    assert prefers == ["HomeNet"]            # still made sticky
+    assert torn == [True]                    # PixelBlaze link rebuilt
+    assert app._reconnect_target is None
+
+
+async def test_wifi_join_new_network_resets_pb_connection(app, monkeypatch):
+    # Switching networks must drop the PB link (it's on the old network) and
+    # clear the stale reconnect target, so the manager rediscovers fresh —
+    # otherwise coming back to a network couldn't re-find the PixelBlaze.
+    _spinner_passthrough(monkeypatch, app)
+    torn = []
+
+    async def known():
+        return {"NewNet"}
+
+    async def fake_connect(*a, **k):
+        return True
+
+    async def fake_prefer(ssid):
+        pass
+
+    monkeypatch.setattr(wifi_manager, "known_ssids", known)
+    monkeypatch.setattr(wifi_manager, "connect", fake_connect)
+    monkeypatch.setattr(wifi_manager, "prefer", fake_prefer)
+    monkeypatch.setattr(app, "_teardown_client", lambda: torn.append(True))
+    app._ssid = "OldNet"
+    app._reconnect_target = PixelblazeDevice(ip="1.2.3.4", name="PB", device_id=1)
+    app._connected_device = app._reconnect_target
+
+    await app._wifi_join(SimpleNamespace(ssid="NewNet", secured=True))
+    assert torn == [True]                    # dropped the old-network PB link
+    assert app._reconnect_target is None     # cleared the stale target
+    assert app._connected_device is None
+    assert app._ssid == "NewNet"
+
+
+async def test_cleanup_survives_a_failing_close(app, monkeypatch):
+    # A restart must fully tear down even if one resource's close() throws —
+    # otherwise GPIO/sockets/LEDs are left half-released.
+    closed = []
+
+    def boom():
+        raise RuntimeError("close failed")
+
+    monkeypatch.setattr(app, "_teardown_client", lambda: None)
+    monkeypatch.setattr(app._encoders, "close", boom)          # this one fails
+    monkeypatch.setattr(app._power, "close", lambda: closed.append("power"))
+    monkeypatch.setattr(app._battery, "close", lambda: closed.append("battery"))
+    monkeypatch.setattr(app._leds, "close", lambda: closed.append("leds"))
+    monkeypatch.setattr(app._lcd, "close", lambda: closed.append("lcd"))
+
+    app._cleanup()   # must not raise
+    assert closed == ["power", "battery", "leds", "lcd"]   # rest still ran
+
+
+async def test_wifi_scan_flow_ignores_concurrent_trigger(app, monkeypatch):
+    # A second scan trigger while one is in flight must be dropped (two spinners
+    # racing is what put "Please wait…" on screen twice).
+    _spinner_passthrough(monkeypatch, app)
+    scans = []
+
+    async def fake_scan():
+        scans.append(1)
+        await asyncio.sleep(0)     # yield so the second call can interleave
+        return []
+
+    async def ssid():
+        return "A"
+
+    monkeypatch.setattr(wifi_scanner, "scan", fake_scan)
+    monkeypatch.setattr(wifi_manager, "current_ssid", ssid)
+    await asyncio.gather(app._wifi_scan_flow(), app._wifi_scan_flow())
+    assert scans == [1]                      # only one scan actually ran
 
 
 async def test_selected_device_overrides_reconnect(app, monkeypatch):
