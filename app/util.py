@@ -50,3 +50,14 @@ def _fmt_uptime() -> str:
     if h:
         return f"{h}h {m}m"
     return f"{m}m {s}s"
+
+
+def _fmt_minutes(m: int) -> str:
+    """Whole-minute duration as 'Xd Yh' / 'Xh Ym' / 'Xm'."""
+    d, r = divmod(int(m), 1440)
+    h, mm = divmod(r, 60)
+    if d:
+        return f"{d}d {h}h"
+    if h:
+        return f"{h}h {mm}m"
+    return f"{mm}m"

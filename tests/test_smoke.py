@@ -6,7 +6,7 @@ import pytest
 MODULES = [
     "conf.config", "log", "store",
     "hardware.lcd", "hardware.lcd_text", "hardware.lcd_widgets", "hardware.lcd_layout",
-    "hardware.leds", "hardware.battery",
+    "hardware.leds", "hardware.battery", "hardware.gauge",
     "hardware.encoders", "hardware.power",
     "pb.client", "pb.preview", "pb.discovery", "pb.preferred",
     "ui.screens",

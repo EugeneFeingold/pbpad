@@ -69,7 +69,7 @@ Live pattern controls. One row per control the running pattern exposes.
       - **WiFi networks** — pick one · Rescan
         - **Password entry** *(text)* — char picker → `[SEND]`
     - **Info** `»`
-      - **Live stats** *(status)* — voltage · charge · uptime · signal · IP · Device FPS · preview rate
+      - **Live stats** *(status)* — voltage · charge · since charged · uptime · signal · IP · Device FPS · preview rate
     - **Lock** `»`
       - **Locked** — hold both knobs to unlock
     - **Restart** `»`

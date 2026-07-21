@@ -9,7 +9,7 @@ from conf import config
 import log
 from wifi import manager as wifi_manager
 
-from app.util import _local_ip, _fmt_uptime
+from app.util import _local_ip, _fmt_uptime, _fmt_minutes
 
 
 class BatteryMixin:
@@ -66,6 +66,7 @@ class BatteryMixin:
             "Raw %":   f"{raw_pct}%" if raw_pct is not None else "n/a",
             "Scaled":  f"{scaled}%" if scaled is not None else "n/a",
             "Max":     f"{stored_max}%" if stored_max > 0 else "unset",
+            "Since charged": _fmt_minutes(self._gauge.minutes_since_charged()),
             "Uptime":  _fmt_uptime(),
             "SSID":    self._ssid or "n/a",
             "Signal":  f"{dbm} dBm" if dbm is not None else "n/a",

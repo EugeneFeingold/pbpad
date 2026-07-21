@@ -64,6 +64,15 @@ def test_subnet_prefix_empty(monkeypatch):
     assert app_util._subnet_prefix() == ""
 
 
+def test_fmt_minutes():
+    assert app_util._fmt_minutes(0) == "0m"
+    assert app_util._fmt_minutes(45) == "45m"
+    assert app_util._fmt_minutes(60) == "1h 0m"
+    assert app_util._fmt_minutes(192) == "3h 12m"
+    assert app_util._fmt_minutes(1440) == "1d 0h"
+    assert app_util._fmt_minutes(1440 + 3 * 60) == "1d 3h"
+
+
 # --- _extract_picks (static) ----------------------------------------------
 def test_extract_picks_averages(monkeypatch):
     monkeypatch.setattr(config, "LED_COUNT", 2)
@@ -463,6 +472,12 @@ async def test_collect_info_includes_device_fps(app):
     app._preview_client = SimpleNamespace(device_fps=61.0)
     info = await app._collect_info()
     assert info["Device FPS"] == "61"
+
+
+async def test_collect_info_includes_time_since_charged(app, monkeypatch):
+    monkeypatch.setattr(app._gauge, "minutes_since_charged", lambda: 192)
+    info = await app._collect_info()
+    assert info["Since charged"] == "3h 12m"
 
 
 # --- escalating recovery ---------------------------------------------------

@@ -1,0 +1,17 @@
+# Line-ending policy.
+#
+# This project runs on a Linux Raspberry Pi, so anything executed there must use
+# LF — a CRLF shebang breaks with "/bin/bash^M: bad interpreter". A Windows
+# checkout with core.autocrlf=true would otherwise rewrite shell scripts to
+# CRLF, which then get deployed and fail on the Pi. These rules override that so
+# the working tree is LF regardless of the developer's git config.
+
+# Default: treat as text, and force LF in the working tree everywhere.
+* text=auto eol=lf
+
+# Windows batch files must stay CRLF to run in cmd.exe.
+*.bat text eol=crlf
+
+# Binary assets — never apply line-ending (or diff) conversion. splash.fb is a
+# raw 1-bit framebuffer; CRLF translation would corrupt it.
+*.fb binary

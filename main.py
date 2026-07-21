@@ -149,6 +149,7 @@ class App(EventsMixin, FlowsMixin, ConnectionMixin, PreviewMixin,
         self._led_thread_stop.set()
         if self._led_thread is not None:
             _try(self._led_thread.join, 1.0)
+        _try(self._gauge.flush)      # persist the since-charged timer
         _try(self._teardown_client)  # also stops the preview client
         _try(self._encoders.close)
         _try(self._power.close)

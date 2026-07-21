@@ -44,7 +44,7 @@ pins, right column = even pins. Blank "Used for" = unused.
 | 25 | GND | GND rail | | 26 | GPIO7 / CE1 | — |
 | 27 | GPIO0 / ID_SD | reserved | | 28 | GPIO1 / ID_SC | reserved |
 | 29 | GPIO5 | — | | 30 | GND | GND rail |
-| 31 | GPIO6 | — | | 32 | GPIO12 | — |
+| 31 | GPIO6 | — | | 32 | GPIO12 | ACT LED (heartbeat) |
 | 33 | GPIO13 | Enc 2 · B | | 34 | GND | Enc 1 GND |
 | 35 | GPIO19 | Enc 2 · A | | 36 | GPIO16 | Enc 1 · SW |
 | 37 | GPIO26 | Enc 2 · SW | | 38 | GPIO20 | Enc 1 · A |

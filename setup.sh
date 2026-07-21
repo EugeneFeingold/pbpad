@@ -42,22 +42,37 @@ if ! id -nG pi | grep -qw spi; then
     sudo usermod -aG spi pi
 fi
 
-# Reassign the onboard ACT LED to GPIO12 so an externally-visible LED on that
-# pin blinks with SD-card activity (the built-in LED is hidden in the enclosure).
+# Reassign the onboard ACT LED to GPIO12 (an externally-visible LED, since the
+# built-in one is hidden in the enclosure) and drive it with the kernel's
+# "heartbeat" trigger — the double-pulse "device is alive" beat, running from
+# early boot independent of the app.
 # Newer RPi OS uses /boot/firmware/config.txt; older uses /boot/config.txt.
 BOOT_CONFIG=""
 for f in /boot/firmware/config.txt /boot/config.txt; do
     if [ -f "$f" ]; then BOOT_CONFIG="$f"; break; fi
 done
 if [ -n "$BOOT_CONFIG" ]; then
-    for line in "dtparam=act_led_gpio=12" "dtparam=act_led_trigger=mmc0"; do
-        if ! grep -qxF "$line" "$BOOT_CONFIG"; then
-            echo "adding '$line' to $BOOT_CONFIG (takes effect on reboot)"
-            echo "$line" | sudo tee -a "$BOOT_CONFIG" > /dev/null
-        fi
+    if ! grep -qxF "dtparam=act_led_gpio=12" "$BOOT_CONFIG"; then
+        echo "adding 'dtparam=act_led_gpio=12' to $BOOT_CONFIG (takes effect on reboot)"
+        echo "dtparam=act_led_gpio=12" | sudo tee -a "$BOOT_CONFIG" > /dev/null
+    fi
+    # Force the trigger to heartbeat, replacing any earlier value (e.g. mmc0).
+    if ! grep -qxF "dtparam=act_led_trigger=heartbeat" "$BOOT_CONFIG"; then
+        echo "setting ACT LED trigger to heartbeat in $BOOT_CONFIG (takes effect on reboot)"
+        sudo sed -i '/^dtparam=act_led_trigger=/d' "$BOOT_CONFIG"
+        echo "dtparam=act_led_trigger=heartbeat" | sudo tee -a "$BOOT_CONFIG" > /dev/null
+    fi
+    # Ensure the heartbeat trigger driver is loaded early — the act_led_trigger
+    # dtparam leaves the LED dark if the module isn't ready when the LED inits.
+    echo "ledtrig-heartbeat" | sudo tee /etc/modules-load.d/pbpad-heartbeat.conf > /dev/null
+    # Apply the trigger now too, so it works without a reboot (modprobe is a
+    # no-op if the driver is built in).
+    sudo modprobe ledtrig-heartbeat 2>/dev/null || true
+    for led in /sys/class/leds/ACT /sys/class/leds/led0; do
+        [ -e "$led/trigger" ] && echo heartbeat | sudo tee "$led/trigger" > /dev/null && break
     done
 else
-    echo "warning: no /boot/*/config.txt found; skipping ACT LED remap"
+    echo "warning: no /boot/*/config.txt found; skipping ACT LED setup"
 fi
 
 # Allow the pi user to power off and reboot without a password (physical
