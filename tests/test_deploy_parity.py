@@ -57,6 +57,7 @@ def test_tests_are_not_deployed():
     "--delay-directory-restore",      # let a NEW dir be written before its 555 mode
     "--warning=no-unknown-keyword",   # silence bsdtar SCHILY.fflags headers
     "chmod +x *.sh",                  # execute bit lost in the round-trip
+    r"sed -i 's/\r$//' *.sh",         # strip CRLF so the Pi shebang doesn't break
     "chown -R",                       # reclaim root-owned files before extract
     "id -un",                         # ...as the connecting user, not hardcoded
     "chmod -R u+rwX",                 # undo 555 dirs from Windows ReadOnly attr

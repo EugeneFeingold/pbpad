@@ -67,6 +67,12 @@ echo "== Copying source to $PI:$DEST"
 #                                  only at the very end, so file writes always
 #                                  succeed regardless of the archive's dir modes
 #                                  or which OS built it.
+#   sed -i 's/\r$//' *.sh        : strip CR from shell scripts. A Windows editor
+#                                  (or git autocrlf) can leave setup.sh with CRLF
+#                                  line endings; the Pi's shell then fails with
+#                                  "/bin/bash^M: bad interpreter". Normalising on
+#                                  the Pi makes the deployed scripts LF no matter
+#                                  what bytes the working copy holds.
 #   chmod +x *.sh                : the execute bit does not survive the
 #                                  tarball round-trip from macOS/Windows.
 #   chmod -R u+rwX (BOTH SIDES of the extract) : belt-and-suspenders alongside
@@ -80,7 +86,7 @@ echo "== Copying source to $PI:$DEST"
 # The \$( ) below is escaped so the remote shell expands it, not this one.
 COPYFILE_DISABLE=1 tar --exclude=__pycache__ --exclude=conf/deploy.conf -cf - "${PATHS[@]}" \
     | ssh "${SSH_OPTS[@]}" "$PI" \
-        "cd '$DEST' && (sudo -n chown -R \$(id -un):\$(id -gn) . || echo CHOWN-SKIPPED) && chmod -R u+rwX . && tar --overwrite --delay-directory-restore --warning=no-unknown-keyword -xf - && chmod -R u+rwX . && chmod +x *.sh"
+        "cd '$DEST' && (sudo -n chown -R \$(id -un):\$(id -gn) . || echo CHOWN-SKIPPED) && chmod -R u+rwX . && tar --overwrite --delay-directory-restore --warning=no-unknown-keyword -xf - && chmod -R u+rwX . && sed -i 's/\r$//' *.sh && chmod +x *.sh"
 
 echo "== Restarting pbpad"
 ssh "${SSH_OPTS[@]}" "$PI" 'sudo systemctl restart pbpad && sleep 3 && systemctl is-active pbpad'

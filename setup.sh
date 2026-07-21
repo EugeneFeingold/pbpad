@@ -42,37 +42,32 @@ if ! id -nG pi | grep -qw spi; then
     sudo usermod -aG spi pi
 fi
 
-# Reassign the onboard ACT LED to GPIO12 (an externally-visible LED, since the
-# built-in one is hidden in the enclosure) and drive it with the kernel's
-# "heartbeat" trigger — the double-pulse "device is alive" beat, running from
-# early boot independent of the app.
-# Newer RPi OS uses /boot/firmware/config.txt; older uses /boot/config.txt.
+# Redirect the built-in ACT LED to GPIO12, where an external LED is wired, so
+# the external LED does whatever the on-board ACT LED does by default (on this
+# Pi that's the "actpwr" trigger — lit while the Pi is powered). No custom
+# overlay, trigger, or service. The external LED is wired active-HIGH (pin high
+# = lit), the opposite of the on-board ACT LED's active-low sense, so we invert
+# the LED sense with act_led_activelow=on — without it the pin idles/asserts low
+# and the external LED stays dark.
 BOOT_CONFIG=""
 for f in /boot/firmware/config.txt /boot/config.txt; do
-    if [ -f "$f" ]; then BOOT_CONFIG="$f"; break; fi
+    [ -f "$f" ] && { BOOT_CONFIG="$f"; break; }
 done
 if [ -n "$BOOT_CONFIG" ]; then
-    if ! grep -qxF "dtparam=act_led_gpio=12" "$BOOT_CONFIG"; then
-        echo "adding 'dtparam=act_led_gpio=12' to $BOOT_CONFIG (takes effect on reboot)"
-        echo "dtparam=act_led_gpio=12" | sudo tee -a "$BOOT_CONFIG" > /dev/null
-    fi
-    # Force the trigger to heartbeat, replacing any earlier value (e.g. mmc0).
-    if ! grep -qxF "dtparam=act_led_trigger=heartbeat" "$BOOT_CONFIG"; then
-        echo "setting ACT LED trigger to heartbeat in $BOOT_CONFIG (takes effect on reboot)"
-        sudo sed -i '/^dtparam=act_led_trigger=/d' "$BOOT_CONFIG"
-        echo "dtparam=act_led_trigger=heartbeat" | sudo tee -a "$BOOT_CONFIG" > /dev/null
-    fi
-    # Ensure the heartbeat trigger driver is loaded early — the act_led_trigger
-    # dtparam leaves the LED dark if the module isn't ready when the LED inits.
-    echo "ledtrig-heartbeat" | sudo tee /etc/modules-load.d/pbpad-heartbeat.conf > /dev/null
-    # Apply the trigger now too, so it works without a reboot (modprobe is a
-    # no-op if the driver is built in).
-    sudo modprobe ledtrig-heartbeat 2>/dev/null || true
-    for led in /sys/class/leds/ACT /sys/class/leds/led0; do
-        [ -e "$led/trigger" ] && echo heartbeat | sudo tee "$led/trigger" > /dev/null && break
-    done
+    # Strip any prior act_led lines and leftovers from earlier heartbeat/overlay
+    # experiments, then set exactly the GPIO remap + active-high polarity.
+    sudo sed -i \
+        -e '/^dtparam=act_led_gpio=/d' \
+        -e '/^dtparam=act_led_trigger=/d' \
+        -e '/^dtparam=act_led_activelow=/d' \
+        -e '/^dtoverlay=pbpad-heartbeat/d' \
+        "$BOOT_CONFIG"
+    sudo rm -f /boot/firmware/overlays/pbpad-heartbeat.dtbo /boot/overlays/pbpad-heartbeat.dtbo
+    printf 'dtparam=act_led_gpio=12\ndtparam=act_led_activelow=on\n' \
+        | sudo tee -a "$BOOT_CONFIG" > /dev/null
+    echo "ACT LED redirected to GPIO12 (external LED, active-high); reboot to apply"
 else
-    echo "warning: no /boot/*/config.txt found; skipping ACT LED setup"
+    echo "warning: no config.txt found; skipping external LED setup"
 fi
 
 # Allow the pi user to power off and reboot without a password (physical

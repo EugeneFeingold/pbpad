@@ -64,6 +64,12 @@ rem                                  mid-extract. This flag creates dirs writabl
 rem                                  during extraction and applies their archived
 rem                                  modes only at the very end, so file writes
 rem                                  always succeed regardless of archive dir modes.
+rem   sed -i 's/\r$//' *.sh        : strip CR from shell scripts. A Windows editor
+rem                                  (or git autocrlf) can leave setup.sh with CRLF
+rem                                  line endings; the Pi's shell then fails with
+rem                                  "/bin/bash^M: bad interpreter". Normalising on
+rem                                  the Pi makes the deployed scripts LF no matter
+rem                                  what bytes the working copy holds.
 rem   chmod +x *.sh                : the execute bit does not survive the
 rem                                  tarball round-trip from Windows/macOS.
 rem   chmod -R u+rwX (BOTH SIDES of the extract) : belt-and-suspenders alongside
@@ -74,7 +80,7 @@ rem                                  restores at end-of-extract, so the tree is
 rem                                  left writable.
 rem   chown -R                     : cheap insurance for a genuinely root-owned
 rem                                  file; tolerated when sudo is unavailable.
-ssh -i "%KEY%" -o BatchMode=yes -o ConnectTimeout=10 %PI% "cd %DEST% && (sudo -n chown -R $(id -un):$(id -gn) . || echo CHOWN-SKIPPED) && chmod -R u+rwX . && tar --overwrite --delay-directory-restore --warning=no-unknown-keyword -xf %TAR% && chmod -R u+rwX . && chmod +x *.sh && rm %TAR%"
+ssh -i "%KEY%" -o BatchMode=yes -o ConnectTimeout=10 %PI% "cd %DEST% && (sudo -n chown -R $(id -un):$(id -gn) . || echo CHOWN-SKIPPED) && chmod -R u+rwX . && tar --overwrite --delay-directory-restore --warning=no-unknown-keyword -xf %TAR% && chmod -R u+rwX . && sed -i 's/\r$//' *.sh && chmod +x *.sh && rm %TAR%"
 if errorlevel 1 (del %TAR% 2>nul & goto fail)
 del %TAR%
 

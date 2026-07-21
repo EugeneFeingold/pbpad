@@ -44,13 +44,22 @@ pins, right column = even pins. Blank "Used for" = unused.
 | 25 | GND | GND rail | | 26 | GPIO7 / CE1 | — |
 | 27 | GPIO0 / ID_SD | reserved | | 28 | GPIO1 / ID_SC | reserved |
 | 29 | GPIO5 | — | | 30 | GND | GND rail |
-| 31 | GPIO6 | — | | 32 | GPIO12 | ACT LED (heartbeat) |
+| 31 | GPIO6 | — | | 32 | GPIO12 | Activity LED (ACT redirected here) |
 | 33 | GPIO13 | Enc 2 · B | | 34 | GND | Enc 1 GND |
 | 35 | GPIO19 | Enc 2 · A | | 36 | GPIO16 | Enc 1 · SW |
 | 37 | GPIO26 | Enc 2 · SW | | 38 | GPIO20 | Enc 1 · A |
 | 39 | GND | Enc 2 GND | | 40 | GPIO21 | Enc 1 · B |
 
 **Subsystems:** 3.3 V · 5 V · GND · OLED · Encoders · LEDs · Fuel gauge · Power button
+
+> **GPIO12 activity LED is active-high.** `setup.sh` redirects the Pi's built-in
+> ACT LED to GPIO12 (`dtparam=act_led_gpio=12`) so an externally-visible LED
+> shows the on-board activity indicator. This LED is wired the normal way —
+> GPIO → resistor → LED → GND — so it lights when the pin is **HIGH**. The
+> on-board ACT LED is active-*low* (pin low = lit), and the kernel assumes that
+> sense, so `setup.sh` also sets `dtparam=act_led_activelow=on` to invert it.
+> Without that invert the pin sits low ("on" to the kernel) and the external LED
+> stays dark.
 
 ## Power
 
