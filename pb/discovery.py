@@ -6,10 +6,12 @@ import time
 from dataclasses import dataclass
 
 from conf import config
+from pb import pools
 import log
 
 _BEACON_MAGIC = 42        # first word of a PixelBlaze beacon packet
 _BEACON_STRUCT = "<LLL"   # magic, id, uptime — 12 bytes
+_WS_TIMEOUT = 5.0         # bound the name/probe socket reads
 
 
 @dataclass
@@ -67,6 +69,10 @@ def _device_name(ip: str) -> str | None:
         pb = Pixelblaze(ip)
     except Exception:
         return None
+    try:
+        pb.ws.settimeout(_WS_TIMEOUT)
+    except Exception:
+        pass
     try:
         return pb.getDeviceName() or None
     except Exception:
@@ -156,7 +162,7 @@ async def discover(timeout_sec: float = 5) -> list:
         log.log(log.CHANGE, f"discover: found {len(devices)} in {elapsed_ms}ms ({names})")
         return devices
 
-    return await loop.run_in_executor(None, _run)
+    return await loop.run_in_executor(pools.DISCOVERY, _run)
 
 
 async def probe(ip: str) -> PixelblazeDevice:
@@ -167,11 +173,15 @@ async def probe(ip: str) -> PixelblazeDevice:
         from pixelblaze import Pixelblaze
         pb = Pixelblaze(ip)
         try:
+            pb.ws.settimeout(_WS_TIMEOUT)
+        except Exception:
+            pass
+        try:
             name = pb.getDeviceName() or ip
         except Exception:
             name = ip
         pb._close()
         return name
 
-    name = await loop.run_in_executor(None, _probe)
+    name = await loop.run_in_executor(pools.DISCOVERY, _probe)
     return PixelblazeDevice(ip=ip, name=name, device_id=hash(ip))

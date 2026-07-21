@@ -17,6 +17,7 @@ from pb.discovery import (
 )
 from pb.client import PixelblazeClient
 from pb import preferred
+from pb import pools
 from wifi import manager as wifi_manager
 from ui.screens import (
     DeviceSelectScreen,
@@ -68,7 +69,10 @@ class ConnectionMixin:
             # inline would freeze the UI on a dead PB. Closing also unblocks any
             # read stranded on the dead connection.
             client.cancel_pending()
-            fut = self._loop.run_in_executor(None, client.close_socket)
+            # Dedicated teardown pool — never the shared default one. A close
+            # that blocks on a dead socket must only ever starve other closes,
+            # never discovery or the next connection.
+            fut = self._loop.run_in_executor(pools.TEARDOWN, client.close_socket)
         self._stop_preview_client()
         return fut
 

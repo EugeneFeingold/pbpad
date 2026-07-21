@@ -10,7 +10,15 @@ import time
 from typing import Optional
 
 from conf import config
+import log
 from pb.preview import PreviewClient
+
+# Restart the preview stream if we should be getting frames but haven't for this
+# long. Safety net over the session's own reconnect: a half-open socket the
+# library never surfaced would otherwise stay dead until the user toggles LED
+# brightness. Comfortably longer than a normal reconnect so it only fires when
+# the stream is genuinely wedged.
+_PREVIEW_WATCHDOG_SEC = 10.0
 
 
 class PreviewMixin:
@@ -23,6 +31,17 @@ class PreviewMixin:
             await asyncio.sleep(1.0)
             self._recv_shown, self._recv_count = self._recv_count, 0
             self._write_shown, self._write_count = self._write_count, 0
+            self._preview_watchdog()
+
+    def _preview_watchdog(self):
+        """Rebuild the preview stream if it has silently stalled — the automatic
+        equivalent of toggling LED brightness off and on to recover it."""
+        if (self._preview_client is None or self._pb_client is None
+                or self._led_brightness == 0 or self._low_battery):
+            return
+        if time.monotonic() - self._last_preview_at > _PREVIEW_WATCHDOG_SEC:
+            log.log(log.CHANGE, "preview watchdog: no frames — restarting stream")
+            self._start_preview_client(self._pb_client.ip)
 
     def _start_preview_client(self, ip: str):
         """No-op if the preview stream wouldn't be used — either the user has
@@ -34,6 +53,9 @@ class PreviewMixin:
             return
         self._preview_client = PreviewClient(ip, self._on_preview_frame)
         self._preview_client.start()
+        # Grace period: the watchdog counts stall time from here, so it doesn't
+        # trip before the first frame has a chance to arrive.
+        self._last_preview_at = time.monotonic()
 
     def _stop_preview_client(self):
         pc = self._preview_client
@@ -104,6 +126,7 @@ class PreviewMixin:
                 or self._low_battery or self._led_brightness == 0):
             return
         now = time.monotonic()
+        self._last_preview_at = now      # feeds the stall watchdog on the loop
         # Pattern changed? The buffered frames belong to the old pattern and
         # the playback delay would keep showing them after the switch. Stash
         # them under the outgoing pattern and swap in whatever we remember for

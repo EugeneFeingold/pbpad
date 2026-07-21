@@ -45,47 +45,73 @@ def test_filter_accepts_reversal_after_window(clock):
     assert f.accept(-1)
 
 
-# --- _SwitchHandler --------------------------------------------------------
+# --- _SwitchHandler (polled) -----------------------------------------------
 def make_switch(fake_queue, fake_loop):
     return _SwitchHandler(pin=17, name="enc1", queue=fake_queue, loop=fake_loop,
                           short_event=("press", "enc1"), long_event=None)
 
 
-def test_press_fires_immediately_without_long_event(fake_queue, fake_loop):
-    # No long-press to disambiguate -> the action fires on the PRESS edge, so a
-    # fast tap whose release is eaten by debounce can't be lost.
-    sw = make_switch(fake_queue, fake_loop)   # long_event=None
-    sw._on_pressed()
+def settle(sw, clock, pressed):
+    """Drive the raw pin to `pressed` and poll until it registers as stable."""
+    sw._btn.is_pressed = pressed
+    sw.poll()              # notices the change, starts the settle timer
+    clock.t += 0.05        # past _SW_DEBOUNCE
+    sw.poll()              # stable now -> emits the transition
+
+
+def test_press_fires_immediately_without_long_event(fake_queue, fake_loop, clock):
+    # No long-press to disambiguate -> the action fires on the PRESS transition.
+    sw = make_switch(fake_queue, fake_loop)
+    settle(sw, clock, True)
     assert fake_queue.items == [("button_down", "enc1"), ("press", "enc1")]
 
 
-def test_release_only_reports_button_up_without_long_event(fake_queue, fake_loop):
+def test_release_only_reports_button_up_without_long_event(fake_queue, fake_loop, clock):
     sw = make_switch(fake_queue, fake_loop)
-    sw._on_pressed()
-    sw._on_released()
-    # press fired on the down edge; release must NOT emit a second press.
-    assert fake_queue.items == [("button_down", "enc1"), ("press", "enc1"),
-                                ("button_up", "enc1")]
-    assert fake_queue.items.count(("press", "enc1")) == 1
+    settle(sw, clock, True)
+    fake_queue.items.clear()
+    settle(sw, clock, False)
+    assert fake_queue.items == [("button_up", "enc1")]   # no duplicate press
 
 
-def test_long_event_mode_defers_press_to_release(fake_queue, fake_loop):
-    # When a long-press exists, the short event still waits for release so a
-    # hold can be reclassified — and it must NOT also fire on press.
+def test_poll_recovers_from_a_missed_edge(fake_queue, fake_loop, clock):
+    # The whole point of polling: whatever state we think we're in, a sample
+    # that sees the pin released emits button_up and clears — no stuck 'pressed'
+    # that would kill the next press or spuriously arm the two-knob lock.
+    sw = make_switch(fake_queue, fake_loop)
+    settle(sw, clock, True)
+    assert sw.is_pressed is True
+    fake_queue.items.clear()
+    settle(sw, clock, False)
+    assert ("button_up", "enc1") in fake_queue.items
+    assert sw.is_pressed is False
+
+
+def test_debounce_ignores_unsettled_change(fake_queue, fake_loop, clock):
+    sw = make_switch(fake_queue, fake_loop)
+    sw._btn.is_pressed = True
+    sw.poll()
+    clock.t += 0.005       # shorter than _SW_DEBOUNCE
+    sw.poll()
+    assert fake_queue.items == []   # not stable long enough -> nothing yet
+
+
+def test_long_event_mode_defers_press_to_release(fake_queue, fake_loop, clock):
     sw = _SwitchHandler(17, "enc1", fake_queue, fake_loop,
                         ("press", "enc1"), long_event=("long", "enc1"))
-    sw._on_pressed()
+    settle(sw, clock, True)
     assert ("press", "enc1") not in fake_queue.items    # not on press
-    sw._on_released()
+    settle(sw, clock, False)
     assert ("press", "enc1") in fake_queue.items         # on release (not held)
 
 
-def test_held_suppresses_short_press(fake_queue, fake_loop):
+def test_held_emits_long_and_suppresses_short(fake_queue, fake_loop, clock):
     sw = _SwitchHandler(17, "enc1", fake_queue, fake_loop,
                         ("press", "enc1"), long_event=("long", "enc1"))
-    sw._on_pressed()
-    sw._on_held()
-    sw._on_released()
+    settle(sw, clock, True)                    # press -> button_down
+    clock.t += encoders._LONG_PRESS_TIME + 0.1
+    sw.poll()                                  # still held -> long fires
+    settle(sw, clock, False)                   # release
     assert ("long", "enc1") in fake_queue.items
     assert ("press", "enc1") not in fake_queue.items
 
@@ -99,17 +125,23 @@ def test_is_pressed_reflects_pin(fake_queue, fake_loop):
 # --- EncoderHandler --------------------------------------------------------
 def test_rotate_emits_encoder_event(fake_queue, fake_loop, clock):
     h = EncoderHandler(fake_queue, fake_loop)
-    enc1_cw = h._encoders[0].when_rotated_clockwise
-    enc1_cw()
-    assert ("encoder", "enc1", -1) in fake_queue.items
+    try:
+        enc1_cw = h._encoders[0].when_rotated_clockwise
+        enc1_cw()
+        assert ("encoder", "enc1", -1) in fake_queue.items
+    finally:
+        h.close()
 
 
 def test_rotate_suppressed_while_pressed(fake_queue, fake_loop, clock):
     h = EncoderHandler(fake_queue, fake_loop)
-    # Press enc1's switch, then rotate -> event suppressed.
-    h._switches[0]._btn.is_pressed = True
-    h._encoders[0].when_rotated_clockwise()
-    assert fake_queue.items == []
+    try:
+        # Press enc1's switch, then rotate -> event suppressed.
+        h._switches[0]._btn.is_pressed = True
+        h._encoders[0].when_rotated_clockwise()
+        assert fake_queue.items == []
+    finally:
+        h.close()
 
 
 def test_close_closes_everything(fake_queue, fake_loop):

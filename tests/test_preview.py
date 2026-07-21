@@ -7,6 +7,28 @@ import pb.preview as prev
 from pb.preview import PreviewClient
 
 
+def test_socket_work_never_uses_the_shared_default_pool():
+    """Every blocking socket op must run on a dedicated pool (pb.pools, or the
+    per-instance client/preview executors) — never run_in_executor(None, ...).
+
+    A hung PixelBlaze close() on the shared default pool once pinned all its
+    threads and made discovery ("Finding PixelBlaze") hang until a restart.
+    This guards the isolation that fixes that: if you offload socket work, use
+    a dedicated executor.
+    """
+    import inspect
+    import pb.discovery
+    import pb.client
+    import pb.preview
+    import app.connection
+    import app.preview
+
+    for mod in (pb.discovery, pb.client, pb.preview, app.connection, app.preview):
+        bad = [ln.strip() for ln in inspect.getsource(mod).splitlines()
+               if "run_in_executor(None" in ln and not ln.lstrip().startswith("#")]
+        assert not bad, f"{mod.__name__} uses the shared default executor: {bad}"
+
+
 def test_stop_nowait_no_task_no_pb():
     pc = PreviewClient("1.2.3.4", on_frame=lambda f: None)
     pc.stop_nowait()   # no task, no pb -> must not raise
@@ -187,6 +209,36 @@ def test_handler_exception_does_not_kill_the_session(monkeypatch):
     monkeypatch.setattr(pixelblaze, "Pixelblaze", PB)
     pc._run_session()               # must not raise
     assert len(calls) >= 1
+
+
+def test_session_bails_when_stream_stalls(monkeypatch, fake_loop):
+    # A broken socket that returns empty frames forever must NOT spin here — the
+    # session bails after _STALL_SEC so the supervisor reconnects.
+    t = [1000.0]
+    monkeypatch.setattr(prev.time, "monotonic", lambda: t[0])
+    pc = PreviewClient("1.2.3.4", on_frame=lambda f: None)
+    pc._loop = fake_loop
+    pc._stop = False
+    reads = [0]
+
+    class PB:
+        def __init__(self, ip):
+            self.closed = False
+
+        def setSendPreviewFrames(self, on):
+            pass
+
+        def getPreviewFrame(self):
+            reads[0] += 1
+            t[0] += 1.0            # 1s of "no frame" per read
+            return b""
+
+        def _close(self):
+            self.closed = True
+
+    monkeypatch.setattr(pixelblaze, "Pixelblaze", PB)
+    pc._run_session()             # must RETURN, not loop forever
+    assert prev._STALL_SEC <= reads[0] <= prev._STALL_SEC + 3
 
 
 def test_run_session_bails_if_enable_fails(monkeypatch, fake_loop):

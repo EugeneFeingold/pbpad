@@ -94,6 +94,7 @@ class App(EventsMixin, FlowsMixin, ConnectionMixin, PreviewMixin,
         self._write_count: int = 0
         self._recv_shown: int = 0
         self._write_shown: int = 0
+        self._last_preview_at: float = 0.0   # monotonic time of last preview frame
         self._fps_task: Optional[asyncio.Task] = None
         # Ring of recent picks: tuple of (timestamp, picks_list). Stored as an
         # immutable tuple so the LED thread can snapshot it in one attribute

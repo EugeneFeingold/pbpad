@@ -24,6 +24,10 @@ async def app(temp_settings):
     a._led_thread_stop.set()
     if a._led_thread is not None:
         a._led_thread.join(timeout=1)
+    try:
+        a._encoders.close()   # stop the switch-poll thread (else it spins per test)
+    except Exception:
+        pass
 
 
 # --- module-level helpers --------------------------------------------------
@@ -765,6 +769,41 @@ async def test_wifi_join_new_network_resets_pb_connection(app, monkeypatch):
     assert app._reconnect_target is None     # cleared the stale target
     assert app._connected_device is None
     assert app._ssid == "NewNet"
+
+
+async def test_preview_watchdog_restarts_when_stalled(app, monkeypatch):
+    restarts = []
+    monkeypatch.setattr(app, "_start_preview_client", lambda ip: restarts.append(ip))
+    app._preview_client = SimpleNamespace()          # a client exists
+    app._pb_client = SimpleNamespace(ip="1.2.3.4")
+    app._led_brightness = 5
+    app._low_battery = False
+    app._last_preview_at = main.time.monotonic() - 999   # no frames for ages
+    app._preview_watchdog()
+    assert restarts == ["1.2.3.4"]
+
+
+async def test_preview_watchdog_quiet_when_fresh(app, monkeypatch):
+    restarts = []
+    monkeypatch.setattr(app, "_start_preview_client", lambda ip: restarts.append(ip))
+    app._preview_client = SimpleNamespace()
+    app._pb_client = SimpleNamespace(ip="1.2.3.4")
+    app._led_brightness = 5
+    app._low_battery = False
+    app._last_preview_at = main.time.monotonic()     # just received a frame
+    app._preview_watchdog()
+    assert restarts == []
+
+
+async def test_preview_watchdog_quiet_without_a_client(app, monkeypatch):
+    restarts = []
+    monkeypatch.setattr(app, "_start_preview_client", lambda ip: restarts.append(ip))
+    app._preview_client = None                       # nothing to restart
+    app._pb_client = SimpleNamespace(ip="1.2.3.4")
+    app._led_brightness = 5
+    app._last_preview_at = main.time.monotonic() - 999
+    app._preview_watchdog()
+    assert restarts == []
 
 
 async def test_cleanup_survives_a_failing_close(app, monkeypatch):

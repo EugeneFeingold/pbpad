@@ -8,6 +8,7 @@ import log
 from pb.discovery import PixelblazeDevice
 
 DEBOUNCE_SEC = 0.25  # wait this long after the knob stops before sending
+_WS_TIMEOUT = 6.0    # socket timeout so a dead link surfaces instead of hanging
 
 
 def _parse_config(pb) -> dict:
@@ -90,6 +91,13 @@ class PixelblazeClient:
         self._pb = await loop.run_in_executor(self._executor, Pixelblaze, self._device.ip)
 
         def _init():
+            # Bound blocking socket ops so a dead link can't wedge this client's
+            # worker thread (or its close) forever. Defensive: no-op if the
+            # library changes the attribute.
+            try:
+                self._pb.ws.settimeout(_WS_TIMEOUT)
+            except Exception:
+                pass
             patterns = self._pb.getPatternList() or {}
             cfg = _parse_config(self._pb)  # one getConfigSettings call
             return patterns, cfg
