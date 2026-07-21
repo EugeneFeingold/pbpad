@@ -34,7 +34,16 @@ POLL_INTERVAL = 5
 POLL_TIMEOUT = 4         # a poll that doesn't answer in this long = dead connection
 POLL_FAIL_LIMIT = 3      # consecutive failed polls before the PB is treated as lost
 RECONNECT_INTERVAL = 3   # seconds between reconnect attempts
-CONNECT_TIMEOUT = 8      # cap a reconnect attempt so Cancel stays responsive
+CONNECT_TIMEOUT = 25     # backstop for a wedged reconnect attempt. Must exceed a
+                         # FULL connect (WS handshake + getPatternList +
+                         # getConfigSettings + getSequencerPlaylist) over a
+                         # degraded post-drop link — that routinely takes >8s, and
+                         # an 8s cap would cancel connects that would have
+                         # succeeded, leaving the reconnect screen spinning while
+                         # a manual discovery (which has no cap) connects fine.
+                         # This is only a wedge backstop, NOT the Cancel path:
+                         # Cancel is handled by the input task tearing the client
+                         # down (closing the socket unblocks the connect at once).
 DIRECT_ATTEMPTS = 3      # try the last-known IP this many times before falling
                          # back to discovery (which catches a DHCP IP change)
 RECOVERY_RESTART_SEC = 300  # if recovery gets nowhere this long, restart the
