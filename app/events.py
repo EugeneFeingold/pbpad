@@ -209,6 +209,19 @@ class EventsMixin:
             self._in_menu = False
             self._wake_manager()
 
+    def _leave_menu_for_recovery(self):
+        """A connection drop was detected while the user was in a menu. Tear the
+        menu tree down (running each screen's will_pop cleanup) and release
+        _in_menu, so the ReconnectScreen recovery is about to show isn't
+        stranded on top of a stale nav stack — Back/Cancel from it would
+        otherwise walk back into dead Settings sub-screens. Recovery replaces
+        self._screen with the ReconnectScreen on its next loop."""
+        self._notify_pop(self._screen)
+        for s in self._nav_stack:
+            self._notify_pop(s)
+        self._nav_stack.clear()
+        self._in_menu = False
+
     @staticmethod
     def _notify_pop(screen):
         """Give a screen a chance to release resources when it's being

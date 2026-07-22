@@ -639,6 +639,33 @@ async def test_cancel_reconnect_clears_target(app, monkeypatch):
     assert app._force_picker is True   # falls into the picker after search
 
 
+def test_leave_menu_for_recovery_clears_stack_and_runs_will_pop(app):
+    # A drop detected while in a menu must tear the menu tree down so the
+    # ReconnectScreen isn't stranded on a stale nav stack.
+    popped = []
+
+    def screen(tag):
+        return SimpleNamespace(will_pop=lambda: popped.append(tag))
+
+    app._in_menu = True
+    app._screen = screen("current")
+    app._nav_stack = [screen("settings"), screen("sub")]
+    app._leave_menu_for_recovery()
+    assert app._in_menu is False
+    assert app._nav_stack == []
+    assert set(popped) == {"current", "settings", "sub"}
+
+
+def test_leave_menu_for_recovery_tolerates_plain_screens(app):
+    # Screens without a will_pop hook (most of them) must not raise.
+    app._in_menu = True
+    app._screen = SimpleNamespace()
+    app._nav_stack = [SimpleNamespace()]
+    app._leave_menu_for_recovery()
+    assert app._in_menu is False
+    assert app._nav_stack == []
+
+
 # --- WiFi join flow --------------------------------------------------------
 def _spinner_passthrough(monkeypatch, app):
     async def spin(line1, line2, coro):

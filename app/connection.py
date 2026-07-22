@@ -126,13 +126,22 @@ class ConnectionMixin:
         fails = 0
         while True:
             try:
-                if self._sleeping or self._locked or self._in_menu or self._low_battery:
+                # Hard pauses. Being in a menu is deliberately NOT one: we must
+                # still notice a dropped connection while the user sits in
+                # Settings, or the preview stream freezes on its last buffered
+                # frame and recovery never starts. While in a menu we probe with
+                # a non-mutating ping (below) so the check can't clobber a value
+                # the user is editing.
+                if self._sleeping or self._locked or self._low_battery:
                     await self._wait_wake(1.0)
                     continue
 
                 if self._pb_client is not None:
+                    # In a menu: ping (liveness only, no state refresh).
+                    # Otherwise: poll, which also refreshes the live screens.
+                    probe = self._pb_client.ping if self._in_menu else self._pb_client.poll
                     try:
-                        ok = await asyncio.wait_for(self._pb_client.poll(), POLL_TIMEOUT)
+                        ok = await asyncio.wait_for(probe(), POLL_TIMEOUT)
                     except asyncio.TimeoutError:
                         # A slow poll (e.g. contention while the user hammers
                         # controls) is only a *soft* failure — count it, don't
@@ -153,10 +162,25 @@ class ConnectionMixin:
                             self._reconnect_target = self._connected_device
                             self._reconnect_attempts = 0
                             self._recovery_started_at = time.monotonic()
+                            # Drop happened in a menu: leave it so the
+                            # ReconnectScreen recovery shows isn't stranded under
+                            # a stale nav stack.
+                            if self._in_menu:
+                                self._leave_menu_for_recovery()
                             self._teardown_client()
                             fails = 0
                         else:
                             await self._wait_wake(1.0)  # quick retry after a soft failure
+                    continue
+
+                # Disconnected. If the user is in a menu with nothing to recover
+                # or connect (e.g. they opened Settings before we ever
+                # connected), don't paint discovery/the picker over their menu —
+                # wait until they leave it. A pending recovery (_reconnect_target)
+                # or explicit pick (_selected_device) does proceed.
+                if (self._in_menu and self._reconnect_target is None
+                        and self._selected_device is None):
+                    await self._wait_wake(1.0)
                     continue
 
                 fails = 0

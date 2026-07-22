@@ -105,6 +105,37 @@ def test_parse_config_empty_sequencer():
     assert cfg["seq_mode"] == 1
 
 
+# --- ping: liveness check that must NOT mutate cached state ----------------
+async def test_ping_true_without_mutating_state(client):
+    # A pb that would report DIFFERENT values than the client currently holds.
+    client._pb = SimpleNamespace(
+        getConfigSettings=lambda: {"brightness": 0.9},
+        latestSequencer=json.dumps({
+            "activeProgram": {"activeProgramId": "other", "controls": {"z": 0.1}},
+            "runSequencer": True, "sequencerMode": 2,
+        }),
+        latestStats=None,
+    )
+    client._brightness = 0.42
+    client._sequencer_running = False
+    client._active_pattern_id = "mine"
+    client._controls = {"a": 0.5}
+    assert await client.ping() is True
+    # ping is liveness only — none of the cached fields may change.
+    assert client._brightness == 0.42
+    assert client._sequencer_running is False
+    assert client._active_pattern_id == "mine"
+    assert client._controls == {"a": 0.5}
+
+
+async def test_ping_false_on_dead_socket(client):
+    def boom():
+        raise OSError("dead socket")
+    client._pb = SimpleNamespace(getConfigSettings=boom, latestSequencer=None,
+                                 latestStats=None)
+    assert await client.ping() is False
+
+
 # --- local state -----------------------------------------------------------
 async def test_set_control_clamps_and_marks_pending(client):
     # async: set_control schedules a debounce task, which needs a running loop.

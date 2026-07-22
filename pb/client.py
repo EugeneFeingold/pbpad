@@ -146,6 +146,22 @@ class PixelblazeClient:
         self._sequencer_running = cfg["seq_running"]
         return True
 
+    async def ping(self) -> bool:
+        """Liveness check that does NOT touch any cached state.
+
+        Used while the user is in a menu: the connection manager still needs to
+        notice a dropped link (so recovery starts and the preview doesn't freeze
+        on its last frame), but a routine poll would overwrite brightness /
+        sequencer / control values the user may be editing in Settings. This
+        does the same round-trip poll uses to detect a dead socket, then throws
+        the result away. Returns False if the read failed.
+        """
+        try:
+            await self._run(_parse_config, self._pb)
+            return True
+        except Exception:
+            return False
+
     async def load_controls(self):
         try:
             cfg = await self._run(_parse_config, self._pb)
